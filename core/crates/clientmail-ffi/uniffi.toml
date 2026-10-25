@@ -1,0 +1,5 @@
+[bindings.swift]
+module_name = "CoreBridge"
+ffi_module_name = "CoreBridgeFFI"
+ffi_module_filename = "CoreBridgeFFI"
+generate_immutable_records = true

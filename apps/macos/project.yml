@@ -1,0 +1,57 @@
+name: ClientMail
+options:
+  bundleIdPrefix: dev.samuelemedici
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+packages:
+  ClientMailKit:
+    path: Packages/ClientMailKit
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+
+targets:
+  ClientMail:
+    type: application
+    platform: macOS
+    sources:
+      - path: ClientMail
+    dependencies:
+      - package: ClientMailKit
+        product: AccountsFeature
+      - package: ClientMailKit
+        product: CoreAdapter
+      - package: ClientMailKit
+        product: MailDomain
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.samuelemedici.clientmail
+        PRODUCT_NAME: ClientMail
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: ClientMail
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        CODE_SIGN_ENTITLEMENTS: ClientMail/ClientMail.entitlements
+        # Ad-hoc signing for local builds. Replace with a team identity before distribution.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+
+schemes:
+  ClientMail:
+    build:
+      targets:
+        ClientMail: all
+    run:
+      config: Debug

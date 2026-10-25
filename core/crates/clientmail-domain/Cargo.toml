@@ -1,0 +1,16 @@
+[package]
+name = "clientmail-domain"
+description = "Domain types, validation and port traits of the ClientMail core."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+email_address.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

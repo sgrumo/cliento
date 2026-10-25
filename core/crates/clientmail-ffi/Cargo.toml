@@ -1,0 +1,23 @@
+[package]
+name = "clientmail-ffi"
+description = "UniFFI API of the ClientMail core, consumed by the Swift app."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "clientmail_ffi"
+# `lib` for Rust tests, `staticlib` for the XCFramework, `cdylib` for binding generation.
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+clientmail-domain.workspace = true
+clientmail-engine.workspace = true
+clientmail-store.workspace = true
+thiserror.workspace = true
+uniffi.workspace = true
+
+[lints]
+workspace = true

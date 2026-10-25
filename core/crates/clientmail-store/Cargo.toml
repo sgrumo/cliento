@@ -1,0 +1,16 @@
+[package]
+name = "clientmail-store"
+description = "SQLite persistence for the ClientMail core."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+clientmail-domain.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
