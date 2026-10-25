@@ -1,14 +1,32 @@
 //! Domain types, validation and port traits of the `ClientMail` core.
 //!
 //! This crate performs no I/O. Storage and network crates implement the traits in [`ports`].
+//!
+//! Types that hold personal data (names, addresses, subjects, folder names, message ids) print
+//! `<redacted>` in their `Debug` output, so logging them never leaks that data.
 
 mod account;
 mod address;
 mod error;
+mod flags;
+mod id;
+mod mailbox;
+mod message;
+mod participant;
 pub mod ports;
 mod provider;
+mod redact;
+mod time;
 
 pub use account::{Account, AccountId, NewAccount};
 pub use address::EmailAddress;
 pub use error::DomainError;
+pub use flags::{Flag, Keyword, MessageFlags};
+pub use mailbox::{Mailbox, MailboxId, MailboxPath, MailboxRole};
+pub use message::{
+    GmailMessageId, GmailThreadId, HeaderFields, HeaderMessageId, ImapUid, MessageHeader,
+    MessageId, RemoteMessageRef, UidValidity,
+};
+pub use participant::{Participant, ParticipantAddress};
 pub use provider::Provider;
+pub use time::UnixTime;

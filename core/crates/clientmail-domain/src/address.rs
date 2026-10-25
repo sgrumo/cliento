@@ -2,12 +2,15 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::DomainError;
+use crate::redact::Redacted;
 
 /// A validated email address.
 ///
 /// The domain part is stored in lowercase, because domains are case-insensitive. The local part
 /// keeps its case, because RFC 5321 lets servers treat it as case-sensitive.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+///
+/// `Debug` hides the address, so it never reaches logs.
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct EmailAddress {
     value: String,
     at_index: usize,
@@ -18,13 +21,13 @@ impl EmailAddress {
     ///
     /// # Arguments
     ///
-    /// * `input` - The address as typed by the user. Surrounding whitespace is ignored.
+    /// * `input` - The bare address (`ada@example.com`). Surrounding whitespace is ignored.
     ///
     /// # Errors
     ///
     /// Returns [`DomainError::InvalidEmailAddress`] when the text is not an RFC-compliant address,
-    /// or when it has no dot in the domain (addresses like `user@localhost` cannot receive mail
-    /// from the internet).
+    /// when it carries a display name (`Ada <ada@example.com>`), or when it has no dot in the
+    /// domain (addresses like `user@localhost` cannot receive mail from the internet).
     ///
     /// # Examples
     ///
@@ -37,11 +40,15 @@ impl EmailAddress {
     /// ```
     pub fn parse(input: &str) -> Result<Self, DomainError> {
         let trimmed = input.trim();
-        let parsed = email_address::EmailAddress::from_str(trimmed).map_err(|error| {
-            DomainError::InvalidEmailAddress {
-                reason: error.to_string(),
-            }
-        })?;
+        // The crate accepts `Name <address>` by default and drops the name; this type holds only
+        // bare addresses, so names never get lost silently.
+        let options = email_address::Options::default().without_display_text();
+        let parsed =
+            email_address::EmailAddress::parse_with_options(trimmed, options).map_err(|error| {
+                DomainError::InvalidEmailAddress {
+                    reason: error.to_string(),
+                }
+            })?;
         let domain = parsed.domain().to_lowercase();
         if !domain.contains('.') {
             return Err(DomainError::InvalidEmailAddress {
@@ -73,6 +80,15 @@ impl EmailAddress {
     pub fn domain(&self) -> &str {
         // Skips the `@` itself, which is one byte long.
         self.value.get(self.at_index + 1..).unwrap_or_default()
+    }
+}
+
+impl fmt::Debug for EmailAddress {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_tuple("EmailAddress")
+            .field(&Redacted)
+            .finish()
     }
 }
 
@@ -120,6 +136,16 @@ mod tests {
         assert!(
             matches!(result, Err(DomainError::InvalidEmailAddress { .. })),
             "expected an invalid address error, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn parse_rejects_display_name_form() {
+        let result = EmailAddress::parse("Mallory <ada@example.com>");
+
+        assert!(
+            matches!(result, Err(DomainError::InvalidEmailAddress { .. })),
+            "a display name must not be dropped silently, got {result:?}"
         );
     }
 

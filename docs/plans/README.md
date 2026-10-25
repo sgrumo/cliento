@@ -12,11 +12,29 @@ Status: `todo`, `planning`, `in progress`, `in review`, `done`.
 | --- | --- | --- | --- |
 | 0.1 | Scaffold: crates, Swift package, app, bridge, rules, docs | none | done |
 
+## Notes carried into later steps
+
+Findings from reviews that belong to a step not planned yet. Each step's plan must address the
+notes listed for it.
+
+| For step | Note | From |
+| --- | --- | --- |
+| 1.2 | Add a `Message` aggregate (id, account, `RemoteMessageRef`, header, flags) and a mailbox sync-state type (`UIDVALIDITY`, `UIDNEXT`, `HIGHESTMODSEQ`) to `clientmail-domain`, not to the store | 1.1 review P9 |
+| 1.2 | For plain IMAP, `RemoteMessageRef::Imap.mailbox` is the source of truth; the message-mailbox relation holds Gmail labels only | 1.1 review P9 |
+| 1.2 | Key mailboxes on `MailboxId`; `(account, path)` must not be their identity, so renames are not delete plus create | 1.1 review P10 |
+| 1.2 | Store `GmailMessageId` and `GmailThreadId` as the bits of a `u64` in an `INTEGER` column (`as i64` round trip), not by numeric value | 1.1 review P12 |
+| 1.6 | When `MailboxPath::new` rejects a server folder, skip that folder and keep syncing the rest | 1.1 review C6 |
+| 1.6 | Add a `CoreError` case for invalid server data, so it is not reported as a storage failure | 1.1 review C7 |
+| 1.7 | Fetch `Bcc` on sent mail, `List-Id` and `List-Unsubscribe` presence, `X-GM-THRID` and the All Mail `UID` | 1.1 review P1, P2, P6, P7 |
+| 1.7 | Add `MessageFlags` building from server flags (`FromIterator` or `extend`) when the adapter needs it | 1.1 review C10 |
+| 5.4 | Add `MessageFlags::remove_keyword` for snooze | 1.1 review C10 |
+| 6.5 | Graph folders have opaque ids and `displayName`s that may contain `/`; Outlook categories contain spaces and do not fit `Keyword` | 1.1 review P10 |
+
 ## M1: Sign-in and first sync (Gmail)
 
 | Step | Goal | Depends on | Status |
 | --- | --- | --- | --- |
-| 1.1 | [Domain types for mailboxes and message headers](1.1-mail-domain-types.md) | 0.1 | planning |
+| 1.1 | [Domain types for mailboxes and message headers](1.1-mail-domain-types.md) | 0.1 | done |
 | 1.2 | Store: mailboxes and messages tables, body file store | 1.1 | todo |
 | 1.3 | Secret storage: Keychain access and where it lives (Swift or Rust) | 0.1 | todo |
 | 1.4 | Google OAuth sign-in with PKCE, tokens saved and refreshed | 1.3 | todo |

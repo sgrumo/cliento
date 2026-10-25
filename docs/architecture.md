@@ -59,6 +59,25 @@ without polling.
 - Full-text search uses SQLite FTS5 over subject, participants and plain-text bodies.
 - Credentials and OAuth tokens live in the macOS Keychain, never in the database.
 
+## Identity model
+
+- Accounts, mailboxes and messages have local UUID v7 ids (`AccountId`, `MailboxId`,
+  `MessageId`). They never change, so the store and the UI key on them.
+- Each message also keeps a `RemoteMessageRef` that says where it lives on the server:
+  - plain IMAP: mailbox, `UIDVALIDITY` and `UID`. A new `UIDVALIDITY` invalidates every `UID` in
+    that mailbox, and the sync engine re-matches messages. This mailbox is the single source of
+    truth for where a plain IMAP message is;
+  - Gmail: `X-GM-MSGID` (same in every label, so a message with several labels is stored once),
+    `X-GM-THRID` (the conversation), and the `UIDVALIDITY` and `UID` in `[Gmail]/All Mail`, which
+    every write and expunge check uses. Labels are a separate many-to-many relation.
+- Mailboxes are keyed on `MailboxId`, not on their name: folders get renamed.
+- `MailboxRole` keeps `AllMail` (`\All`, usually virtual) apart from `Archive` (`\Archive`, where
+  archived mail moves).
+- The message list sorts by the time the server received a message, not by the sender's `Date`.
+- Header participants keep addresses that are not RFC-valid as raw text instead of rejecting them,
+  so malformed mail still shows. Participants with a blank address are dropped.
+- Domain types that hold personal data print `<redacted>` in `Debug`, so logging them is safe.
+
 ## Sync model (planned)
 
 - One sync task per account. It keeps an IMAP IDLE connection on the inbox and polls other folders

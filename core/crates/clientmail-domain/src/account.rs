@@ -1,42 +1,17 @@
 use std::fmt;
-use std::str::FromStr;
 
-use uuid::Uuid;
-
+use crate::id::uuid_id;
+use crate::redact::redact_option;
 use crate::{DomainError, EmailAddress, Provider};
 
-/// Identifies an account.
-///
-/// Backed by a UUID v7, so ids sort in creation order without a separate timestamp.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct AccountId(Uuid);
+uuid_id!(
+    /// Identifies an account.
+    AccountId,
+    DomainError::InvalidAccountId
+);
 
-impl AccountId {
-    /// Creates a new, unique id.
-    #[must_use]
-    pub fn generate() -> Self {
-        Self(Uuid::now_v7())
-    }
-}
-
-impl fmt::Display for AccountId {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(formatter)
-    }
-}
-
-impl FromStr for AccountId {
-    type Err = DomainError;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        Uuid::parse_str(input)
-            .map(Self)
-            .map_err(|_| DomainError::InvalidAccountId)
-    }
-}
-
-/// The data needed to add an account, after validation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The data needed to add an account, after validation. `Debug` hides personal data.
+#[derive(Clone, PartialEq, Eq)]
 pub struct NewAccount {
     address: EmailAddress,
     display_name: Option<String>,
@@ -84,8 +59,8 @@ impl NewAccount {
     }
 }
 
-/// A mail account configured in the app.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A mail account configured in the app. `Debug` hides personal data.
+#[derive(Clone, PartialEq, Eq)]
 pub struct Account {
     id: AccountId,
     address: EmailAddress,
@@ -139,6 +114,28 @@ impl Account {
     #[must_use]
     pub const fn provider(&self) -> Provider {
         self.provider
+    }
+}
+
+impl fmt::Debug for NewAccount {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("NewAccount")
+            .field("address", &self.address)
+            .field("display_name", &redact_option(self.display_name.as_ref()))
+            .finish()
+    }
+}
+
+impl fmt::Debug for Account {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Account")
+            .field("id", &self.id)
+            .field("address", &self.address)
+            .field("display_name", &redact_option(self.display_name.as_ref()))
+            .field("provider", &self.provider)
+            .finish()
     }
 }
 

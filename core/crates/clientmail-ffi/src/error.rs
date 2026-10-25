@@ -27,6 +27,12 @@ impl From<DomainError> for CoreError {
         match error {
             DomainError::InvalidEmailAddress { .. } => Self::InvalidAddress,
             DomainError::InvalidAccountId => Self::InvalidAccountId,
+            // No Swift input reaches these. They come from stored data or, from step 1.6, from
+            // server data; 1.6 adds a dedicated case so bad server data is not shown as storage.
+            DomainError::InvalidMailboxId
+            | DomainError::InvalidMessageId
+            | DomainError::InvalidMailboxPath { .. }
+            | DomainError::InvalidKeyword => Self::Storage,
         }
     }
 }
@@ -69,5 +75,21 @@ mod tests {
             CoreError::InvalidAccountId,
             "invalid id"
         );
+    }
+
+    #[test]
+    fn mail_domain_errors_map_to_storage() {
+        for error in [
+            DomainError::InvalidMailboxId,
+            DomainError::InvalidMessageId,
+            DomainError::InvalidMailboxPath { reason: "test" },
+            DomainError::InvalidKeyword,
+        ] {
+            assert_eq!(
+                CoreError::from(error.clone()),
+                CoreError::Storage,
+                "{error:?}"
+            );
+        }
     }
 }
