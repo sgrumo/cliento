@@ -9,7 +9,9 @@ A light, local-first macOS email client. A Rust core owns every rule and all dat
 | `core/` | Rust workspace: domain, storage, engine, Swift bindings | `core/AGENTS.md` |
 | `apps/macos/` | macOS app (SwiftUI) and its Swift packages | `apps/macos/AGENTS.md` |
 | `docs/` | Architecture, roadmap, feature specs, decisions | this file |
+| `docs/plans/` | Step index and one plan per step | this file |
 | `scripts/` | Build glue between Rust and Swift | this file |
+| `.claude/agents/` | Project subagents (`deslop`) | this file |
 
 Read the `AGENTS.md` of every folder on the path of a file before you change it.
 
@@ -51,6 +53,27 @@ Run from the repository root.
 - Never store secrets, tokens or passwords in the repository. Account secrets go to the macOS Keychain.
 - Never log message bodies, addresses or tokens.
 - Generated files (`Artifacts/`, `Sources/CoreBridge/Generated/`, the `.xcodeproj`) are never edited by hand and never committed.
+
+## Workflow for every step
+
+Work happens in small steps listed in `docs/plans/README.md`. Every step goes through these phases
+in order. Do not skip or merge phases.
+
+1. **Plan.** Write `docs/plans/<milestone>.<step>-<slug>.md` from `docs/plans/TEMPLATE.md`. The
+   user reviews and approves it before any code is written.
+2. **Implement.** Code and tests exactly as planned. If the plan turns out wrong, stop, update the
+   plan, and get it approved again. Finish with `make check` green.
+3. **Adversarial review.** Run the `adversary` agent on both the plan (and the feature spec it
+   implements in `docs/features.md`) and the step's code changes. Brief it with the plan path and
+   `git diff` of the step. It reports problems only, it changes nothing. Report its findings to the
+   user unfiltered, each with a recommendation.
+4. **User check.** The user reviews everything and decides which findings to fix. Apply the changes
+   they ask for, then run `make check` again.
+5. **Deslop.** Only after the user has signed off on the review phase, run the `deslop` agent
+   (`.claude/agents/deslop.md`) on the step's diff. Review its edits, run `make check`, and show the
+   user what it changed.
+6. **Commit.** When the user asks, commit the step as one conventional commit. Mark the step done in
+   `docs/plans/README.md`.
 
 ## Docs
 
