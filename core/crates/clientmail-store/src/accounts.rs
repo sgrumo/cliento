@@ -47,6 +47,14 @@ impl AccountRepository for SqliteStore {
         })
     }
 
+    fn exists(&self, id: AccountId) -> Result<bool, StoreError> {
+        self.with_connection(|connection| {
+            Ok(connection
+                .prepare_cached("SELECT 1 FROM accounts WHERE id = ?1")?
+                .exists([id.to_string()])?)
+        })
+    }
+
     fn delete(&self, id: AccountId) -> Result<bool, StoreError> {
         self.with_connection(|connection| {
             let deleted =
@@ -153,6 +161,19 @@ mod tests {
         assert!(first, "first delete removes the row");
         assert!(!second, "second delete finds nothing");
         assert!(store.list().unwrap().is_empty(), "store is empty");
+    }
+
+    #[test]
+    fn exists_reports_stored_accounts_only() {
+        let store = SqliteStore::open_in_memory().unwrap();
+        let stored = account("ada@example.com");
+        store.insert(&stored).unwrap();
+
+        let found = store.exists(stored.id()).unwrap();
+        let missing = store.exists(AccountId::generate()).unwrap();
+
+        assert!(found, "stored account exists");
+        assert!(!missing, "unknown id does not");
     }
 
     #[test]

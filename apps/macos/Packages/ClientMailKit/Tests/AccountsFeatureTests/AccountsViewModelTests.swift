@@ -91,7 +91,10 @@ struct AccountsViewModelTests {
     }
 
     @Test func everyErrorHasAMessage() {
-        let errors: [AccountServiceError] = [.invalidAddress, .duplicateAccount, .accountNotFound, .storage]
+        let errors: [AccountServiceError] = [
+            .invalidAddress, .duplicateAccount, .accountNotFound, .storage, .secretStorageUnavailable,
+            .secretStorage,
+        ]
 
         let messages = errors.map(Strings.message(for:))
 

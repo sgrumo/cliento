@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 email_address.workspace = true
+secrecy.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 

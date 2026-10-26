@@ -202,6 +202,7 @@ name = "clientmail-domain"
 version = "0.1.0"
 dependencies = [
  "email_address",
+ "secrecy",
  "thiserror",
  "uuid",
 ]
@@ -221,6 +222,7 @@ dependencies = [
  "clientmail-domain",
  "clientmail-engine",
  "clientmail-store",
+ "tempfile",
  "thiserror",
  "uniffi",
 ]
@@ -621,6 +623,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "secrecy"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e891af845473308773346dc847b2c23ee78fe442e0472ac50e22a18a93d3ae5a"
+dependencies = [
+ "zeroize",
 ]
 
 [[package]]
@@ -1092,6 +1103,12 @@ checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "zeroize"
+version = "1.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e13084392c5e4bc371903e2935a5eaeed24905a7511356b883835e18a78f6879"
 
 [[package]]
 name = "zmij"

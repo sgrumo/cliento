@@ -32,6 +32,22 @@ the port traits; storage and protocol crates implement them. The FFI crate is th
 picks concrete implementations. On the Swift side, features see only `MailDomain` protocols, so
 they are tested with fakes and never touch Rust directly.
 
+## Platform adapters
+
+The core needs a few services only macOS offers. Each one is a port in `clientmail-domain`, a
+UniFFI callback interface in `clientmail-ffi`, and a Swift implementation in `CoreAdapter` that
+the app hands to the core when it opens it (decision record 0007). The adapters hold no rules.
+
+| Service | Port | Swift adapter | Since |
+| --- | --- | --- | --- |
+| Secret storage | `SecretStore` / `SecretStoreBridge` | `KeychainSecretStore` over `SecItem` | 1.3 |
+
+Keychain items are generic passwords with service `dev.samuelemedici.clientmail` and account
+`<account id>:<secret kind>`, readable after the first unlock, bound to this Mac
+(`...ThisDeviceOnly`: never synced through iCloud, never restored onto another Mac). They
+live in the login keychain until the app is team-signed (7.2), then move to the data-protection
+keychain.
+
 ## Data flow
 
 **Commands** go down: a view model calls a `MailDomain` protocol, `CoreAdapter` calls the

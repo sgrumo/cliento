@@ -4,9 +4,11 @@
 
 use std::error::Error;
 
+use secrecy::SecretString;
+
 use crate::{
     Account, AccountId, BlobId, EmailAddress, Mailbox, MailboxId, MailboxSyncState, Message,
-    MessageId, UnixTime,
+    MessageId, SecretKey, SecretKind, UnixTime,
 };
 
 /// Persists accounts.
@@ -45,6 +47,17 @@ pub trait AccountRepository {
     ///
     /// Returns the storage error when the write fails.
     fn insert(&self, account: &Account) -> Result<(), Self::Error>;
+
+    /// Returns whether an account with this id is stored.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The account to look for.
+    ///
+    /// # Errors
+    ///
+    /// Returns the storage error when the read fails.
+    fn exists(&self, id: AccountId) -> Result<bool, Self::Error>;
 
     /// Deletes an account.
     ///
@@ -248,4 +261,71 @@ pub trait BlobStore {
     ///
     /// Returns the storage error when the read fails or the content no longer matches its id.
     fn get(&self, id: BlobId) -> Result<Option<Vec<u8>>, Self::Error>;
+}
+
+/// Stores account secrets (OAuth tokens, passwords) outside the database.
+///
+/// On macOS the app implements it with the Keychain. Implementations hold no rules: when to read,
+/// write or delete is decided by the engine.
+pub trait SecretStore {
+    /// The storage error type. Its messages must never include a secret.
+    type Error: Error + Send + Sync + 'static;
+
+    /// Returns a secret.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Which secret.
+    ///
+    /// # Returns
+    ///
+    /// `None` when no secret is stored under `key`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the storage error when the read fails.
+    fn read(&self, key: &SecretKey) -> Result<Option<SecretString>, Self::Error>;
+
+    /// Stores a secret, replacing any previous value under `key`.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Which secret.
+    /// * `secret` - The value.
+    ///
+    /// # Errors
+    ///
+    /// Returns the storage error when the write fails.
+    fn write(&self, key: &SecretKey, secret: &SecretString) -> Result<(), Self::Error>;
+
+    /// Deletes a secret.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Which secret.
+    ///
+    /// # Returns
+    ///
+    /// `true` when a secret was deleted, `false` when none was stored.
+    ///
+    /// # Errors
+    ///
+    /// Returns the storage error when the delete fails.
+    fn delete(&self, key: &SecretKey) -> Result<bool, Self::Error>;
+
+    /// Deletes every secret of an account. Kinds with nothing stored are skipped.
+    ///
+    /// # Arguments
+    ///
+    /// * `account` - The account whose secrets to delete.
+    ///
+    /// # Errors
+    ///
+    /// Returns the storage error of the first delete that fails. Kinds deleted before it stay
+    /// deleted, so a failure can leave some of the account's secrets in place and others gone.
+    fn delete_account(&self, account: AccountId) -> Result<(), Self::Error> {
+        SecretKind::ALL
+            .into_iter()
+            .try_for_each(|kind| self.delete(&SecretKey::new(account, kind)).map(|_| ()))
+    }
 }

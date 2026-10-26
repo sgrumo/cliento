@@ -20,11 +20,19 @@ pub enum EngineError {
     /// Storage failed. The source holds the storage-specific error.
     #[error("storage failed")]
     Storage(#[source] Box<dyn Error + Send + Sync>),
+    /// Secret storage (the Keychain on macOS) failed. The source holds the store's error.
+    #[error("secret storage failed")]
+    Secrets(#[source] Box<dyn Error + Send + Sync>),
 }
 
 impl EngineError {
     /// Wraps any storage error. Used with `map_err` at each repository call.
     pub(crate) fn storage(error: impl Error + Send + Sync + 'static) -> Self {
         Self::Storage(Box::new(error))
+    }
+
+    /// Wraps any secret-store error. Used with `map_err` at each secret-store call.
+    pub(crate) fn secrets(error: impl Error + Send + Sync + 'static) -> Self {
+        Self::Secrets(Box::new(error))
     }
 }

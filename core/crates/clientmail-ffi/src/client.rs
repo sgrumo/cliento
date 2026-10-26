@@ -4,14 +4,15 @@ use std::sync::Arc;
 use clientmail_engine::AccountService;
 use clientmail_store::SqliteStore;
 
-use crate::{AccountRecord, CoreError};
+use crate::secrets::ForeignSecretStore;
+use crate::{AccountRecord, CoreError, SecretStoreBridge};
 
 /// The entry point Swift holds on to. One instance per database.
 ///
 /// Methods block on disk I/O. Swift must call them off the main actor.
 #[derive(Debug, uniffi::Object)]
 pub struct CoreClient {
-    accounts: AccountService<SqliteStore>,
+    accounts: AccountService<SqliteStore, ForeignSecretStore>,
 }
 
 #[uniffi::export]
@@ -21,25 +22,33 @@ impl CoreClient {
     /// # Arguments
     ///
     /// * `database_path` - Absolute path of the `SQLite` file. Its folder must exist.
+    /// * `secrets` - The platform's secret storage (the Keychain on macOS).
     ///
     /// # Errors
     ///
     /// Returns [`CoreError::Storage`] when the database cannot be opened or migrated.
     #[uniffi::constructor]
-    pub fn open(database_path: &str) -> Result<Arc<Self>, CoreError> {
+    pub fn open(
+        database_path: &str,
+        secrets: Arc<dyn SecretStoreBridge>,
+    ) -> Result<Arc<Self>, CoreError> {
         let store = SqliteStore::open(Path::new(database_path))?;
-        Ok(Arc::new(Self::with_store(store)))
+        Ok(Arc::new(Self::with_stores(store, secrets)))
     }
 
     /// Opens a private in-memory database, for tests and `SwiftUI` previews.
+    ///
+    /// # Arguments
+    ///
+    /// * `secrets` - The secret storage to use; previews pass an in-memory one.
     ///
     /// # Errors
     ///
     /// Returns [`CoreError::Storage`] when the database cannot be created.
     #[uniffi::constructor]
-    pub fn open_in_memory() -> Result<Arc<Self>, CoreError> {
+    pub fn open_in_memory(secrets: Arc<dyn SecretStoreBridge>) -> Result<Arc<Self>, CoreError> {
         let store = SqliteStore::open_in_memory()?;
-        Ok(Arc::new(Self::with_store(store)))
+        Ok(Arc::new(Self::with_stores(store, secrets)))
     }
 
     /// Returns every account, oldest first.
@@ -82,7 +91,7 @@ impl CoreClient {
         Ok(AccountRecord::from(&account))
     }
 
-    /// Removes an account.
+    /// Removes an account and its secrets.
     ///
     /// # Arguments
     ///
@@ -90,8 +99,9 @@ impl CoreClient {
     ///
     /// # Errors
     ///
-    /// Returns [`CoreError::InvalidAccountId`], [`CoreError::AccountNotFound`] or
-    /// [`CoreError::Storage`].
+    /// Returns [`CoreError::InvalidAccountId`], [`CoreError::AccountNotFound`],
+    /// [`CoreError::SecretStorageUnavailable`] or [`CoreError::SecretStorage`] (in both cases the
+    /// account is kept), or [`CoreError::Storage`].
     pub fn remove_account(&self, id: &str) -> Result<(), CoreError> {
         let id = id.parse().map_err(CoreError::from)?;
         self.accounts.remove_account(id)?;
@@ -100,9 +110,9 @@ impl CoreClient {
 }
 
 impl CoreClient {
-    const fn with_store(store: SqliteStore) -> Self {
+    fn with_stores(store: SqliteStore, secrets: Arc<dyn SecretStoreBridge>) -> Self {
         Self {
-            accounts: AccountService::new(store),
+            accounts: AccountService::new(store, ForeignSecretStore::new(secrets)),
         }
     }
 }

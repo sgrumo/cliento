@@ -2,6 +2,8 @@ use clientmail_domain::DomainError;
 use clientmail_engine::EngineError;
 use clientmail_store::StoreError;
 
+use crate::SecretBridgeError;
+
 /// Errors the Swift app can receive. Each case maps to a message the UI can show.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, uniffi::Error)]
 pub enum CoreError {
@@ -20,6 +22,13 @@ pub enum CoreError {
     /// The local database failed.
     #[error("storage failed")]
     Storage,
+    /// The platform's secret storage (the Keychain on macOS) cannot be used right now, for example
+    /// because it is locked. Retrying later can succeed.
+    #[error("secret storage unavailable")]
+    SecretStorageUnavailable,
+    /// The platform's secret storage (the Keychain on macOS) failed. Retrying will not help.
+    #[error("secret storage failed")]
+    SecretStorage,
 }
 
 impl From<DomainError> for CoreError {
@@ -45,6 +54,14 @@ impl From<EngineError> for CoreError {
             EngineError::DuplicateAccount => Self::DuplicateAccount,
             EngineError::AccountNotFound => Self::AccountNotFound,
             EngineError::Storage(_) => Self::Storage,
+            // The engine boxes the secret store's error; for this crate that store is the bridge, so
+            // `downcast_ref` recovers its `SecretBridgeError` to tell locked from broken.
+            EngineError::Secrets(source) => match source.downcast_ref::<SecretBridgeError>() {
+                Some(SecretBridgeError::Unavailable) => Self::SecretStorageUnavailable,
+                Some(SecretBridgeError::Failure { .. } | SecretBridgeError::Unexpected) | None => {
+                    Self::SecretStorage
+                }
+            },
         }
     }
 }
@@ -75,6 +92,28 @@ mod tests {
             CoreError::from(EngineError::InvalidInput(DomainError::InvalidAccountId)),
             CoreError::InvalidAccountId,
             "invalid id"
+        );
+    }
+
+    #[test]
+    fn secret_errors_tell_locked_from_broken() {
+        let error =
+            |bridge: SecretBridgeError| CoreError::from(EngineError::Secrets(Box::new(bridge)));
+
+        assert_eq!(
+            error(SecretBridgeError::Unavailable),
+            CoreError::SecretStorageUnavailable,
+            "locked"
+        );
+        assert_eq!(
+            error(SecretBridgeError::Failure { code: -25_293 }),
+            CoreError::SecretStorage,
+            "failed"
+        );
+        assert_eq!(
+            error(SecretBridgeError::Unexpected),
+            CoreError::SecretStorage,
+            "unexpected"
         );
     }
 

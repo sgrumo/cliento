@@ -70,6 +70,18 @@ enum Strings {
                 defaultValue: "ClientMail could not read or save its data.",
                 bundle: .module
             )
+        case .secretStorageUnavailable:
+            String(
+                localized: "errorSecretStorageUnavailable",
+                defaultValue: "The Keychain is locked. Unlock your Mac and try again.",
+                bundle: .module
+            )
+        case .secretStorage:
+            String(
+                localized: "errorSecretStorage",
+                defaultValue: "ClientMail could not use the Keychain. Check Keychain Access for problems.",
+                bundle: .module
+            )
         }
     }
 

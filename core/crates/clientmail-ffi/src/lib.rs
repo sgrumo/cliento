@@ -13,10 +13,12 @@
 mod client;
 mod error;
 mod records;
+mod secrets;
 
 pub use client::CoreClient;
 pub use error::CoreError;
 pub use records::{AccountRecord, ProviderKind};
+pub use secrets::{SecretBridgeError, SecretStoreBridge};
 
 uniffi::setup_scaffolding!();
 

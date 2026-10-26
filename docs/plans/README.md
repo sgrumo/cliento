@@ -25,6 +25,12 @@ Notes already resolved move to the "Resolved" column with the step that resolved
 | 1.2 | For plain IMAP, `RemoteMessageRef::Imap.mailbox` is the source of truth; the message-mailbox relation holds Gmail labels only | 1.1 review P9 | 1.2 |
 | 1.2 | Key mailboxes on `MailboxId`; `(account, path)` must not be their identity, so renames are not delete plus create | 1.1 review P10 | 1.2 |
 | 1.2 | Store `GmailMessageId` and `GmailThreadId` as the bits of a `u64` in an `INTEGER` column (`as i64` round trip), not by numeric value | 1.1 review P12 | 1.2 |
+| 1.4 | Store the refresh token through `SecretStore` (`SecretKind::OAuthRefreshToken`) and keep access tokens in memory only | 1.3 plan | |
+| 1.4 | Token writes and removal of the same account must never overlap (for example a lock per account in the engine), or a refreshed token can outlive its account | 1.3 review P1 | |
+| 1.4 | When the Keychain keeps failing on removal (denied prompt, no keychain), block only on `Unavailable`; otherwise remove the account, record the secret's label in a pending-deletion list in the database and retry it on later launches | 1.3 review P2 | |
+| 1.4 | Background Keychain reads must never show UI (`LAContext.interactionNotAllowed` via `kSecUseAuthenticationContext`); check what a locked login keychain really returns before relying on `Unavailable` | 1.3 review P3 | |
+| 1.4 | Insert the account row before writing its token, and delete the token if the insert is rolled back; plan a sweep that lists items under the ClientMail service and deletes those with no account | 1.3 review P6 | |
+| 1.5 | Call the synchronous secret store through `spawn_blocking` (or make the callback interface async) so a blocked Keychain call never stalls a Tokio worker | 1.3 review P5 | |
 | 1.6 | When `MailboxPath::new` rejects a server folder, skip that folder and keep syncing the rest | 1.1 review C6 | |
 | 1.6 | Add a `CoreError` case for invalid server data, so it is not reported as a storage failure | 1.1 review C7 | |
 | 1.7 | Fetch `Bcc` on sent mail, `List-Id` and `List-Unsubscribe` presence, `X-GM-THRID` and the All Mail `UID` | 1.1 review P1, P2, P6, P7 | |
@@ -38,6 +44,7 @@ Notes already resolved move to the "Resolved" column with the step that resolved
 | 2.1 | Link body blobs to messages, and sweep blobs no message references plus leftover `.tmp` files in the blob folders | 1.2 plan, 1.2 review C5 | |
 | 5.4 | Add `MessageFlags::remove_keyword` for snooze | 1.1 review C10 | |
 | 6.5 | Graph folders have opaque ids and `displayName`s that may contain `/`; Outlook categories contain spaces and do not fit `Keyword` | 1.1 review P10 | |
+| 7.2 | With team signing, move Keychain items to the data-protection keychain (`kSecUseDataProtectionKeychain`, access group) and migrate items saved before | 1.3 plan | |
 
 ## M1: Sign-in and first sync (Gmail)
 
@@ -45,7 +52,7 @@ Notes already resolved move to the "Resolved" column with the step that resolved
 | --- | --- | --- | --- |
 | 1.1 | [Domain types for mailboxes and message headers](1.1-mail-domain-types.md) | 0.1 | done |
 | 1.2 | [Store: mailboxes and messages tables, body file store](1.2-store-mailboxes-messages.md) | 1.1 | done |
-| 1.3 | Secret storage: Keychain access and where it lives (Swift or Rust) | 0.1 | todo |
+| 1.3 | [Secret storage: Keychain access and where it lives (Swift or Rust)](1.3-secret-storage.md) | 0.1 | done |
 | 1.4 | Google OAuth sign-in with PKCE, tokens saved and refreshed | 1.3 | todo |
 | 1.5 | Async core: Tokio runtime in the FFI crate, async UniFFI API | 0.1 | todo |
 | 1.6 | IMAP crate: TLS connect, XOAUTH2, list folders, transcript tests | 1.1, 1.5 | todo |

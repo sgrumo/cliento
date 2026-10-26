@@ -1,6 +1,6 @@
 # ClientMail
 
-A light, local-first macOS email client. A Rust core owns every rule and all data. A Swift app only draws the UI.
+A light, local-first macOS email client. A Rust core owns every rule and all data. A Swift app draws the UI and implements the platform services the core asks for (decision record 0007).
 
 ## Repository map
 
@@ -28,6 +28,7 @@ apps/macos  ->  CoreBridge (generated)  ->  clientmail-ffi
 - `clientmail-store` and future protocol crates implement ports. They hold no business rules.
 - `clientmail-ffi` composes the crates and exposes the UniFFI API. It holds no business rules.
 - Swift features depend on the `MailDomain` protocol module, never on `CoreBridge` directly. Only `CoreAdapter` imports `CoreBridge`.
+- Platform services (Keychain now, notifications later) are ports the core defines and UniFFI callback interfaces Swift implements in `CoreAdapter`. These Swift adapters translate calls and errors only; they hold no business rules.
 
 ## Commands
 
@@ -43,6 +44,7 @@ Run from the repository root.
 | `make swift-lint` | `swift-format lint --strict` on handwritten Swift |
 | `make swift-format` | Rewrites handwritten Swift in place with `swift-format` |
 | `make swift-test` | `swift test` for the `ClientMailKit` package |
+| `make keychain-test` | Opt-in test against the real login Keychain; leaves nothing behind |
 | `make app` | Generates the Xcode project with XcodeGen and builds the app |
 
 ## Global rules

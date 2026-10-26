@@ -22,7 +22,8 @@ apps/macos/
   Packages/ClientMailKit/  All app code, as Swift packages
     Sources/MailDomain/        Swift models and service protocols. No UI, no Rust.
     Sources/CoreBridge/        Generated UniFFI bindings. Never edit.
-    Sources/CoreAdapter/       Implements MailDomain protocols with CoreBridge.
+    Sources/CoreAdapter/       Implements MailDomain protocols with CoreBridge, and the
+                               platform adapters the core calls back (Keychain).
     Sources/<Name>Feature/     One folder per feature: views and view models.
     Tests/<Module>Tests/       One test target per module.
 ```
@@ -31,6 +32,9 @@ apps/macos/
 - One type per file.
 - Features depend on `MailDomain` only. Only `CoreAdapter` imports `CoreBridge`.
 - The app target wires concrete adapters into features. It holds no logic.
+- Platform adapters implement a generated callback protocol (for example `SecretStoreBridge`) with
+  first-party Apple APIs. They hold no rules, must be thread-safe (the core calls them from its own
+  threads), and keep the system call behind a small protocol so tests can fake it.
 
 ## Swift
 

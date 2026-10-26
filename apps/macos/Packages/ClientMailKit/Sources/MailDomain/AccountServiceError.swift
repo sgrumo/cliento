@@ -8,4 +8,8 @@ public enum AccountServiceError: Error, Hashable, Sendable {
     case accountNotFound
     /// The local database failed.
     case storage
+    /// The Keychain cannot be used right now, for example because it is locked.
+    case secretStorageUnavailable
+    /// The Keychain failed in a way retrying will not fix.
+    case secretStorage
 }

@@ -1,4 +1,4 @@
-.PHONY: check core-lint core-test core-doc bridge swift-lint swift-format swift-test app-project app
+.PHONY: check core-lint core-test core-doc bridge swift-lint swift-format swift-test keychain-test app-project app
 
 CORE := core
 KIT := apps/macos/Packages/ClientMailKit
@@ -30,6 +30,10 @@ swift-format:
 
 swift-test: bridge
 	cd $(KIT) && swift test
+
+# Opt-in: writes to and deletes from the real login Keychain under a unique test service.
+keychain-test: bridge
+	cd $(KIT) && CLIENTMAIL_KEYCHAIN_TESTS=1 swift test --filter SystemKeychainTests
 
 app-project:
 	cd apps/macos && xcodegen generate --quiet

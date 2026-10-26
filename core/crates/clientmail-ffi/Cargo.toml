@@ -19,5 +19,8 @@ clientmail-store.workspace = true
 thiserror.workspace = true
 uniffi.workspace = true
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [lints]
 workspace = true

@@ -15,9 +15,11 @@ public final class RustAccountService: AccountService {
 
     /// Opens or creates the database at `databaseURL`, creating its folder when needed.
     ///
-    /// - Parameter databaseURL: File URL of the SQLite database.
+    /// - Parameters:
+    ///   - databaseURL: File URL of the SQLite database.
+    ///   - secrets: Where the core keeps account secrets; the app passes a ``KeychainSecretStore``.
     /// - Throws: ``AccountServiceError/storage`` when the folder or database cannot be created.
-    public convenience init(databaseURL: URL) throws(AccountServiceError) {
+    public convenience init(databaseURL: URL, secrets: any SecretStoreBridge) throws(AccountServiceError) {
         let folder = databaseURL.deletingLastPathComponent()
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -25,16 +27,20 @@ public final class RustAccountService: AccountService {
             throw .storage
         }
         let client = try CoreCall.run {
-            try CoreClient.open(databasePath: databaseURL.path(percentEncoded: false))
+            try CoreClient.open(databasePath: databaseURL.path(percentEncoded: false), secrets: secrets)
         }
         self.init(client: client)
     }
 
     /// Creates a service backed by a private in-memory database, for tests and previews.
     ///
+    /// - Parameter secrets: Where the core keeps account secrets; in memory unless a test passes
+    ///   its own store.
     /// - Throws: ``AccountServiceError/storage`` when the database cannot be created.
-    public static func inMemory() throws(AccountServiceError) -> RustAccountService {
-        RustAccountService(client: try CoreCall.run { try CoreClient.openInMemory() })
+    public static func inMemory(
+        secrets: any SecretStoreBridge = InMemorySecretStore()
+    ) throws(AccountServiceError) -> RustAccountService {
+        RustAccountService(client: try CoreCall.run { try CoreClient.openInMemory(secrets: secrets) })
     }
 
     @concurrent

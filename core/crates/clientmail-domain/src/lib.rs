@@ -17,6 +17,7 @@ mod participant;
 pub mod ports;
 mod provider;
 mod redact;
+mod secret;
 mod sync;
 mod time;
 
@@ -32,5 +33,8 @@ pub use message::{
 };
 pub use participant::{Participant, ParticipantAddress};
 pub use provider::Provider;
+/// Re-exported so crates that implement or call [`ports::SecretStore`] use the same secret types.
+pub use secrecy::{ExposeSecret, SecretString};
+pub use secret::{SecretKey, SecretKind};
 pub use sync::{MailboxSyncState, ModSeq};
 pub use time::UnixTime;

@@ -29,6 +29,8 @@ extension AccountServiceError {
         // The UI never types ids, so an invalid id means the account is gone.
         case .AccountNotFound, .InvalidAccountId: self = .accountNotFound
         case .Storage: self = .storage
+        case .SecretStorageUnavailable: self = .secretStorageUnavailable
+        case .SecretStorage: self = .secretStorage
         }
     }
 }

@@ -100,6 +100,28 @@
         }
       }
     },
+    "errorSecretStorage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ClientMail could not use the Keychain. Check Keychain Access for problems."
+          }
+        }
+      }
+    },
+    "errorSecretStorageUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Keychain is locked. Unlock your Mac and try again."
+          }
+        }
+      }
+    },
     "errorStorage": {
       "extractionState": "manual",
       "localizations": {

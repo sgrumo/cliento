@@ -16,7 +16,10 @@ enum Startup {
             .appending(path: "ClientMail", directoryHint: .isDirectory)
             .appending(path: "mail.sqlite")
         do {
-            let service = try RustAccountService(databaseURL: databaseURL)
+            let service = try RustAccountService(
+                databaseURL: databaseURL,
+                secrets: KeychainSecretStore(client: SystemKeychain())
+            )
             return .ready(AccountsViewModel(service: service))
         } catch {
             return .failed(error)
