@@ -5,6 +5,7 @@ members = [
     "crates/clientmail-store",
     "crates/clientmail-engine",
     "crates/clientmail-oauth",
+    "crates/clientmail-imap",
     "crates/clientmail-ffi",
     "tools/uniffi-bindgen",
 ]
@@ -24,8 +25,13 @@ clientmail-store = { path = "crates/clientmail-store" }
 base64 = "0.23.1"
 email_address = "0.2.9"
 getrandom = "0.4.3"
+imap-next = { version = "0.3.4", default-features = false }
+# imap-codec 2.0.0-alpha.9 (through imap-next) uses nom's `alloc` without asking for it.
+nom = { version = "7.1.3", default-features = false, features = ["alloc"] }
 pollster = "1.0.1"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "form", "system-proxy"] }
+rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+rustls-platform-verifier = "0.7.1"
 rusqlite = { version = "0.41.0", features = ["bundled"] }
 secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -34,6 +40,7 @@ sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", default-features = false }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["aws_lc_rs", "tls12"] }
 uniffi = "0.32.2"
 url = "2.5.8"
 uuid = { version = "1.29.0", features = ["v7"] }

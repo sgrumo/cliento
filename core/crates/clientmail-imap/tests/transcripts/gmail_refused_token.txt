@@ -1,0 +1,12 @@
+# Gmail refusing an expired or revoked token: a challenge with a base64 JSON error, which the
+# client answers with an empty line before the tagged NO, as Google's XOAUTH2 protocol document
+# says (https://developers.google.com/gmail/imap/xoauth2-protocol). The JSON follows the shape of
+# Google's example, with a status of 400. Written by hand, not recorded.
+S: * OK Gimap ready for requests from 192.0.2.1 a1b2c3
+C: A0001 CAPABILITY
+S: * CAPABILITY IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA ID XLIST CHILDREN X-GM-EXT-1 XYZZY SASL-IR AUTH=XOAUTH2 AUTH=PLAIN AUTH=PLAIN-CLIENTTOKEN AUTH=OAUTHBEARER
+S: A0001 OK Thats all she wrote! a1b2c3
+C: A0002 AUTHENTICATE XOAUTH2 <xoauth2>
+S: + eyJzdGF0dXMiOiI0MDAiLCJzY2hlbWVzIjoiQmVhcmVyIiwic2NvcGUiOiJodHRwczovL21haWwuZ29vZ2xlLmNvbS8ifQ==
+C: 
+S: A0002 NO [AUTHENTICATIONFAILED] Invalid credentials (Failure)

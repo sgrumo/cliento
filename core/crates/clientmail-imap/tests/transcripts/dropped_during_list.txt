@@ -1,0 +1,7 @@
+# The connection breaks halfway through the folder list. Written by hand.
+S: * OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=XOAUTH2] ready
+C: A0001 AUTHENTICATE XOAUTH2 <xoauth2>
+S: A0001 OK Logged in
+C: A0002 LIST "" *
+S: * LIST (\HasNoChildren) "/" "INBOX"
+CLOSE

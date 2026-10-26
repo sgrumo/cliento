@@ -1,0 +1,3 @@
+# A server that signs the client in on its own (PREAUTH). ClientMail never expects that.
+# Written by hand.
+S: * PREAUTH [CAPABILITY IMAP4rev1 AUTH=XOAUTH2] Logged in as somebody

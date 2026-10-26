@@ -45,6 +45,7 @@ Run from the repository root.
 | `make swift-format` | Rewrites handwritten Swift in place with `swift-format` |
 | `make swift-test` | `swift test` for the `ClientMailKit` package |
 | `make keychain-test` | Opt-in test against the real login Keychain; leaves nothing behind |
+| `make imap-smoke` | Opt-in test against your Gmail's IMAP server; needs a test access token (`docs/google-oauth.md`) |
 | `make app` | Generates the Xcode project with XcodeGen and builds the app |
 
 ## Global rules

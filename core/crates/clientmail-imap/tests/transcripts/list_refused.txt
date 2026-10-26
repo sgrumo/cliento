@@ -1,0 +1,8 @@
+# The server refuses LIST after listing one folder. The client must not report a partial list as
+# complete. Written by hand.
+S: * OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=XOAUTH2] ready
+C: A0001 AUTHENTICATE XOAUTH2 <xoauth2>
+S: A0001 OK Logged in
+C: A0002 LIST "" *
+S: * LIST (\HasNoChildren) "/" "INBOX"
+S: A0002 NO [UNAVAILABLE] Mailbox list temporarily unavailable

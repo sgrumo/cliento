@@ -7,9 +7,9 @@ use std::error::Error;
 use secrecy::SecretString;
 
 use crate::{
-    Account, AccountId, AuthorizationCode, AuthorizationRequest, BlobId, EmailAddress, Mailbox,
-    MailboxId, MailboxSyncState, Message, MessageId, OAuthErrorKind, OAuthState, PkceVerifier,
-    SecretKey, SecretKind, TokenGrant, UnixTime,
+    Account, AccountId, AuthorizationCode, AuthorizationRequest, BlobId, EmailAddress, ImapServer,
+    MailErrorKind, Mailbox, MailboxId, MailboxListing, MailboxSyncState, Message, MessageId,
+    OAuthErrorKind, OAuthState, PkceVerifier, SecretKey, SecretKind, TokenGrant, UnixTime,
 };
 
 /// Persists accounts.
@@ -433,4 +433,71 @@ pub trait Blocking: Send + Sync + 'static {
 pub trait Clock: Send + Sync + 'static {
     /// Returns the current time.
     fn now(&self) -> UnixTime;
+}
+
+/// Opens authenticated sessions with an IMAP server. Implemented by `clientmail-imap`.
+///
+/// It speaks IMAP's vocabulary (folders, sessions); Microsoft Graph gets its own port.
+pub trait MailConnector: Send + Sync + 'static {
+    /// The protocol error type, shared with the sessions.
+    type Error: Error + Send + Sync + 'static;
+    /// An open, authenticated session. `Send + 'static` so a task can own it.
+    type Session: MailSession<Error = Self::Error> + Send + 'static;
+
+    /// Classifies an error for the engine's rules.
+    ///
+    /// # Arguments
+    ///
+    /// * `error` - An error this connector or one of its sessions returned.
+    fn error_kind(error: &Self::Error) -> MailErrorKind;
+
+    /// Connects over TLS, checks the server offers XOAUTH2, and signs in with an access token.
+    ///
+    /// # Arguments
+    ///
+    /// * `server` - Where the server listens.
+    /// * `user` - The account's address.
+    /// * `access_token` - A valid OAuth access token for the account.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error of kind [`MailErrorKind::AuthenticationFailed`] when the server refuses
+    /// the token, [`MailErrorKind::Unavailable`] when it is busy, [`MailErrorKind::Network`]
+    /// when it cannot be reached, and [`MailErrorKind::Protocol`] when it does not offer XOAUTH2
+    /// or answers unexpectedly.
+    fn connect(
+        &self,
+        server: &ImapServer,
+        user: &EmailAddress,
+        access_token: &SecretString,
+    ) -> impl Future<Output = Result<Self::Session, Self::Error>> + Send;
+}
+
+/// An authenticated IMAP session.
+///
+/// After any error, a timeout included, the session is broken: the server may still be sending
+/// the failed command's answer, which the next command would misread. Every later call fails with
+/// a [`MailErrorKind::Network`] error; drop the session and connect again. Dropping a call's
+/// future part-way (cancelling it) leaves the session in the same state.
+pub trait MailSession: Send {
+    /// The protocol error type.
+    type Error: Error + Send + Sync + 'static;
+
+    /// Lists every folder of the account with its role.
+    ///
+    /// Folders whose names cannot be used are left out and counted, so the rest still sync.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error when the listing fails.
+    fn list_mailboxes(
+        &mut self,
+    ) -> impl Future<Output = Result<MailboxListing, Self::Error>> + Send;
+
+    /// Ends the session politely.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error when the server cannot be told; the connection closes anyway.
+    fn logout(self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }

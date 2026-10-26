@@ -11,6 +11,7 @@ mod blob;
 mod error;
 mod flags;
 mod id;
+mod imap;
 mod mailbox;
 mod message;
 mod oauth;
@@ -27,6 +28,7 @@ pub use address::EmailAddress;
 pub use blob::BlobId;
 pub use error::DomainError;
 pub use flags::{Flag, Keyword, MessageFlags};
+pub use imap::{ImapServer, MailErrorKind, MailboxListing, RemoteMailbox, RemoteName};
 pub use mailbox::{Mailbox, MailboxId, MailboxPath, MailboxRole};
 pub use message::{
     GmailMessageId, GmailThreadId, HeaderFields, HeaderMessageId, ImapUid, Message, MessageHeader,

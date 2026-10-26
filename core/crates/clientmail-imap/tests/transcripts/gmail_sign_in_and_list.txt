@@ -1,0 +1,26 @@
+# Gmail: greeting without capabilities, CAPABILITY, XOAUTH2, the folder list, LOGOUT.
+# Written by hand from RFC 3501, RFC 6154 and Google's documentation
+# (https://developers.google.com/gmail/imap/xoauth2-protocol, .../imap/imap-extensions).
+# Not recorded: a recording of a real account holds its address and folder names.
+S: * OK Gimap ready for requests from 192.0.2.1 a1b2c3
+C: A0001 CAPABILITY
+S: * CAPABILITY IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA ID XLIST CHILDREN X-GM-EXT-1 XYZZY SASL-IR AUTH=XOAUTH2 AUTH=PLAIN AUTH=PLAIN-CLIENTTOKEN AUTH=OAUTHBEARER
+S: A0001 OK Thats all she wrote! a1b2c3
+C: A0002 AUTHENTICATE XOAUTH2 <xoauth2>
+S: * CAPABILITY IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA ID XLIST CHILDREN X-GM-EXT-1 UIDPLUS COMPRESS=DEFLATE ENABLE MOVE CONDSTORE ESEARCH UTF8=ACCEPT LIST-EXTENDED LIST-STATUS LITERAL- SPECIAL-USE APPENDLIMIT=35651584
+S: A0002 OK ada@gmail.com authenticated (Success)
+C: A0003 LIST "" *
+S: * LIST (\HasNoChildren) "/" "INBOX"
+S: * LIST (\HasChildren \Noselect) "/" "[Gmail]"
+S: * LIST (\All \HasNoChildren) "/" "[Gmail]/All Mail"
+S: * LIST (\Drafts \HasNoChildren) "/" "[Gmail]/Drafts"
+S: * LIST (\HasNoChildren \Important) "/" "[Gmail]/Important"
+S: * LIST (\HasNoChildren \Sent) "/" "[Gmail]/Sent Mail"
+S: * LIST (\HasNoChildren \Junk) "/" "[Gmail]/Spam"
+S: * LIST (\Flagged \HasNoChildren) "/" "[Gmail]/Starred"
+S: * LIST (\HasNoChildren \Trash) "/" "[Gmail]/Trash"
+S: * LIST (\HasNoChildren) "/" "Receipts"
+S: A0003 OK Success
+C: A0004 LOGOUT
+S: * BYE LOGOUT Requested
+S: A0004 OK 73 good day (Success)

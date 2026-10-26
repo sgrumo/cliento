@@ -20,6 +20,7 @@ workspace uses. The root `AGENTS.md` still applies.
 | `clientmail-store` | SQLite persistence behind the domain ports | `clientmail-domain` |
 | `clientmail-engine` | Use cases. Talks to the outside only through ports. | `clientmail-domain` |
 | `clientmail-oauth` | OAuth protocols (Google): PKCE, URLs, token endpoint over HTTPS. Implements `OAuthClient` | `clientmail-domain` |
+| `clientmail-imap` | IMAP over TLS: XOAUTH2, folders. Implements `MailConnector` | `clientmail-domain` |
 | `clientmail-ffi` | UniFFI API for Swift. Composition root. | all of the above |
 | `tools/uniffi-bindgen` | CLI that generates the Swift bindings | `uniffi` |
 
@@ -80,6 +81,11 @@ Future crates follow the same shape: protocol crates (IMAP, Gmail, Microsoft Gra
 - Never put secrets in code or in the repository.
 - Wrap secrets in `secrecy::SecretString`.
 - Never log passwords, tokens, addresses or message content.
+- No logger (`log`) or `tracing` subscriber is installed today. One added later must cap the
+  `imap_next` and `imap_codec` targets at `warn`: they trace raw IMAP bytes, XOAUTH2 tokens
+  included (decision record 0011).
+- Errors of protocol libraries can carry raw server text (folder names, addresses). Map them to
+  this workspace's errors with fixed messages; never keep them as `#[source]`.
 - No `unsafe`, except what UniFFI generates in `clientmail-ffi`.
 
 ## Tests

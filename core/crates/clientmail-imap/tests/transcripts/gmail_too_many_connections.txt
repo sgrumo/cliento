@@ -1,0 +1,6 @@
+# Gmail refusing a sign-in because the account has too many open connections: a busy server,
+# not a bad token, so the user must not be asked to sign in again. Gmail's wording, written by
+# hand.
+S: * OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=XOAUTH2] Gimap ready
+C: A0001 AUTHENTICATE XOAUTH2 <xoauth2>
+S: A0001 NO [ALERT] Too many simultaneous connections. (Failure)

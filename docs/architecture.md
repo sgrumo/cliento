@@ -23,6 +23,7 @@
 │ clientmail-engine     use cases: accounts, sync, actions      │
 │ clientmail-store      SQLite: schema, migrations, queries     │
 │ clientmail-oauth      Google OAuth: PKCE, token exchange      │
+│ clientmail-imap       IMAP via imap-next: TLS, XOAUTH2 (0011) │
 │ clientmail-<proto>    IMAP / Gmail / Graph / SMTP adapters     │
 │ clientmail-domain     types, validation, port traits          │
 └───────────────────────────────────────────────────────────────┘
@@ -151,9 +152,13 @@ pixels before it reaches the view.
 | `clientmail-store` | unit | in-memory SQLite |
 | `clientmail-engine` | unit | fake repositories |
 | `clientmail-ffi` | integration | real engine + in-memory or temp-file SQLite |
+| `clientmail-imap` | integration | scripted server transcripts over an in-memory pipe |
 | `MailDomain` | unit | pure values |
 | `CoreAdapter` | integration | real Rust core through the XCFramework |
 | `<Name>Feature` | unit | fake services |
 
-No test ever talks to a real mail server. Protocol crates are tested against recorded server
-transcripts.
+No test in `make check` talks to a real mail server. Protocol crates are tested against server
+transcripts: text files of `C:` and `S:` lines that a scripted server plays and checks over an
+in-memory pipe (`clientmail-imap/tests/`). They are written from the RFCs and the provider's
+documentation, not recorded, because a recording of a real account holds its folder names and
+address. One opt-in test (`make imap-smoke`) checks them against a real Gmail account.

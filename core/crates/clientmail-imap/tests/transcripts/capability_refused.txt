@@ -1,0 +1,4 @@
+# A greeting without capabilities, then a refused CAPABILITY. Written by hand.
+S: * OK ready
+C: A0001 CAPABILITY
+S: A0001 NO not now

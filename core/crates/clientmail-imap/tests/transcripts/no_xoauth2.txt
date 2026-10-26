@@ -1,0 +1,3 @@
+# A server that only offers passwords. The client must stop before sending the token.
+# Greeting capabilities as RFC 3501, section 7.1, allows. Written by hand.
+S: * OK [CAPABILITY IMAP4rev1 SASL-IR LITERAL+ AUTH=PLAIN AUTH=LOGIN] mail.example.com ready

@@ -1,0 +1,25 @@
+[package]
+name = "clientmail-imap"
+description = "IMAP over TLS for the ClientMail core: XOAUTH2 and folders."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+clientmail-domain.workspace = true
+imap-next.workspace = true
+nom.workspace = true
+rustls.workspace = true
+rustls-platform-verifier.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "time", "io-util"] }
+tokio-rustls.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
+
+[lints]
+workspace = true

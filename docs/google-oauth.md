@@ -37,3 +37,22 @@ cp apps/macos/Config/GoogleOAuth.example.xcconfig apps/macos/Config/GoogleOAuth.
 
 Set `GOOGLE_CLIENT_ID` in the copy, then run `make app`. `GoogleOAuth.xcconfig` is gitignored.
 Without it the app builds, and the Google sign-in button is hidden.
+
+## 5. A test access token for `make imap-smoke`
+
+`make imap-smoke` signs in to Gmail's IMAP server with a short-lived access token and lists your
+folders, printing only how many folders have each role. Until the app's sync (step 1.8) can hand
+out a token, take one from Google's OAuth 2.0 Playground:
+
+1. Open the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/).
+2. In step 1, enter the scope `https://mail.google.com/` and authorize it with your test account.
+3. In step 2, exchange the code for tokens and copy the access token. It expires after an hour.
+
+```bash
+CLIENTMAIL_IMAP_USER=you@gmail.com CLIENTMAIL_IMAP_TOKEN=ya29... make imap-smoke
+```
+
+The token belongs to the Playground's own client, which is fine for this test: Gmail checks the
+token's scope, not which app asked for it. Revoke the Playground's access afterwards under your
+Google account's third-party access.
+

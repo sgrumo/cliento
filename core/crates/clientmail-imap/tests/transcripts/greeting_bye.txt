@@ -1,0 +1,2 @@
+# A server too busy to talk greets with BYE (RFC 3501, 7.1.5). Written by hand.
+S: * BYE Too many connections, try again later

@@ -1,4 +1,4 @@
-.PHONY: check core-lint core-test core-doc bridge swift-lint swift-format swift-test keychain-test app-project app
+.PHONY: check core-lint core-test core-doc bridge swift-lint swift-format swift-test keychain-test imap-smoke app-project app
 
 CORE := core
 KIT := apps/macos/Packages/ClientMailKit
@@ -34,6 +34,11 @@ swift-test: bridge
 # Opt-in: writes to and deletes from the real login Keychain under a unique test service.
 keychain-test: bridge
 	cd $(KIT) && CLIENTMAIL_KEYCHAIN_TESTS=1 swift test --filter SystemKeychainTests
+
+# Opt-in: signs in to Gmail's IMAP server and lists folders. Needs CLIENTMAIL_IMAP_USER and
+# CLIENTMAIL_IMAP_TOKEN (docs/google-oauth.md, section 5). Prints counts per role, never names.
+imap-smoke:
+	cd $(CORE) && cargo test -p clientmail-imap --test gmail_smoke -- --ignored --nocapture
 
 app-project:
 	cd apps/macos && xcodegen generate --quiet

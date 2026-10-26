@@ -1,0 +1,19 @@
+# Names that need the grammar done right: escaped quote and backslash in a quoted name, a
+# backslash delimiter, a name sent as a literal, attributes that only start like special-use
+# ones, a non-UTF-8 literal (skipped), and two names that decode to the same path (the second is
+# skipped). Written by hand.
+S: * OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=XOAUTH2] ready
+C: A0001 AUTHENTICATE XOAUTH2 <xoauth2>
+S: A0001 OK Logged in
+C: A0002 LIST "" *
+S: * LIST (\HasNoChildren) "/" "a\"b\\c"
+S: * LIST (\HasNoChildren) "\\" "Mail\\Clients"
+S: * LIST (\HasNoChildren) "/" {7}
+S: Literal
+S: * LIST (\AllMail \HasNoChildren) "/" "NotAllMail"
+S: * LIST (\Sentinel) "/" "NotSent"
+S: * LIST (\HasNoChildren) "/" {4}
+S: ab<ff>c
+S: * LIST (\HasNoChildren) "/" "Entw&APw-rfe"
+S: * LIST (\HasNoChildren) "/" "Entwürfe"
+S: A0002 OK done
