@@ -100,6 +100,28 @@
         }
       }
     },
+    "errorMailAccessNotGranted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ClientMail needs access to your mail. Sign in again and allow access to Gmail."
+          }
+        }
+      }
+    },
+    "errorNetwork": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ClientMail could not reach the server. Check your connection and try again."
+          }
+        }
+      }
+    },
     "errorSecretStorage": {
       "extractionState": "manual",
       "localizations": {
@@ -118,6 +140,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "The Keychain is locked. Unlock your Mac and try again."
+          }
+        }
+      }
+    },
+    "errorSignInCancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sign-in was cancelled."
+          }
+        }
+      }
+    },
+    "errorSignInDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ClientMail was not given access to the account."
+          }
+        }
+      }
+    },
+    "errorSignInFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in did not work. Try again."
+          }
+        }
+      }
+    },
+    "errorSignInUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in with Google is not set up in this build of ClientMail."
           }
         }
       }
@@ -239,6 +305,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove Account"
+          }
+        }
+      }
+    },
+    "signInWithGoogle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with Google"
+          }
+        }
+      }
+    },
+    "signInWithGoogleFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For Gmail and Google Workspace accounts."
+          }
+        }
+      }
+    },
+    "signingIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in…"
           }
         }
       }

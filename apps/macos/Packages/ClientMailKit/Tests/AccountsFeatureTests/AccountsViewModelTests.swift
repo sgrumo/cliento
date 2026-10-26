@@ -1,3 +1,4 @@
+import Foundation
 import MailDomain
 import Testing
 
@@ -90,10 +91,163 @@ struct AccountsViewModelTests {
         #expect(await service.stored.isEmpty)
     }
 
+    @Test func loadReportsWhetherGoogleSignInIsAvailable() async {
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(FakeSignInSession(result: .success(ada)))
+        let viewModel = AccountsViewModel(service: service)
+
+        await viewModel.load()
+
+        #expect(viewModel.isGoogleSignInAvailable)
+    }
+
+    @Test func googleSignInAddsTheAccountAndClosesTheSheet() async {
+        let session = FakeSignInSession(result: .success(ada))
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(session)
+        let viewModel = AccountsViewModel(service: service)
+        viewModel.startAddingAccount()
+        let callback = URL(string: "test:/done?code=1")!
+
+        await viewModel.signInWithGoogle { url, scheme in
+            #expect(url == session.authorizationURL)
+            #expect(scheme == "test")
+            return callback
+        }
+
+        #expect(viewModel.accounts == [ada])
+        #expect(!viewModel.isAddingAccount)
+        #expect(!viewModel.isSigningIn)
+        #expect(session.callbackURL == callback)
+    }
+
+    @Test func signingInAgainReplacesTheListedAccount() async {
+        let renamed = Account(id: ada.id, address: ada.address, displayName: "Ada L.", provider: .gmail)
+        let service = FakeAccountService(accounts: [ada])
+        await service.offerGoogleSignIn(FakeSignInSession(result: .success(renamed)))
+        let viewModel = AccountsViewModel(service: service)
+        await viewModel.load()
+
+        await viewModel.signInWithGoogle { _, _ in URL(string: "test:/done")! }
+
+        #expect(viewModel.accounts == [renamed])
+    }
+
+    @Test func signingInAgainKeepsTheAccountsPlace() async {
+        let bob = Account(id: "2", address: "bob@example.com", displayName: nil, provider: .gmail)
+        let renamed = Account(id: ada.id, address: ada.address, displayName: "Ada L.", provider: .gmail)
+        let service = FakeAccountService(accounts: [ada, bob])
+        await service.offerGoogleSignIn(FakeSignInSession(result: .success(renamed)))
+        let viewModel = AccountsViewModel(service: service)
+        await viewModel.load()
+
+        await viewModel.signInWithGoogle { _, _ in URL(filePath: "/done") }
+
+        #expect(viewModel.accounts == [renamed, bob])
+    }
+
+    @Test func closingTheBrowserCancelsQuietly() async {
+        let session = FakeSignInSession(result: .success(ada))
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(session)
+        let viewModel = AccountsViewModel(service: service)
+        viewModel.startAddingAccount()
+
+        await viewModel.signInWithGoogle { _, _ in throw CancellationError() }
+
+        #expect(session.cancels == 1)
+        #expect(session.callbackURL == nil, "never completed")
+        #expect(viewModel.error == nil)
+        #expect(viewModel.isAddingAccount, "sheet stays open")
+    }
+
+    @Test(arguments: [AccountServiceError.signInDenied, .signInCancelled])
+    func deniedOrCancelledSignInShowsNoError(failure: AccountServiceError) async {
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(FakeSignInSession(result: .failure(failure)))
+        let viewModel = AccountsViewModel(service: service)
+
+        await viewModel.signInWithGoogle { _, _ in URL(string: "test:/done")! }
+
+        #expect(viewModel.error == nil)
+        #expect(viewModel.accounts.isEmpty)
+    }
+
+    @Test func otherSignInFailuresShowTheError() async {
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(FakeSignInSession(result: .failure(.network)))
+        let viewModel = AccountsViewModel(service: service)
+
+        await viewModel.signInWithGoogle { _, _ in URL(string: "test:/done")! }
+
+        #expect(viewModel.error == .network)
+    }
+
+    @Test func otherBrowserErrorsShowSignInFailed() async {
+        struct PresentationFailure: Error {}
+        let session = FakeSignInSession(result: .success(ada))
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(session)
+        let viewModel = AccountsViewModel(service: service)
+
+        await viewModel.signInWithGoogle { _, _ in throw PresentationFailure() }
+
+        #expect(viewModel.error == .signInFailed)
+        #expect(session.cancels == 1)
+    }
+
+    @Test func aCancelledSignInReloadsTheList() async {
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(FakeSignInSession(result: .failure(.signInCancelled)))
+        await service.store(ada)
+        let viewModel = AccountsViewModel(service: service)
+
+        await viewModel.signInWithGoogle { _, _ in URL(filePath: "/done") }
+
+        #expect(viewModel.accounts == [ada], "stored before the cancel landed")
+        #expect(viewModel.error == nil)
+    }
+
+    @Test func closingTheSheetBeforeTheBrowserOpensStopsTheSignIn() async {
+        let session = FakeSignInSession(result: .success(ada))
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(session)
+        let viewModel = AccountsViewModel(service: service)
+        viewModel.startAddingAccount()
+        await service.onBeginGoogleSignIn { await viewModel.cancelAddingAccount() }
+        var browserOpened = false
+
+        await viewModel.signInWithGoogle { _, _ in
+            browserOpened = true
+            return URL(filePath: "/done")
+        }
+
+        #expect(!browserOpened)
+        #expect(session.cancels == 1)
+        #expect(viewModel.accounts.isEmpty)
+    }
+
+    @Test func cancellingTheSheetCancelsARunningSignIn() async {
+        let session = FakeSignInSession(result: .success(ada))
+        let service = FakeAccountService()
+        await service.offerGoogleSignIn(session)
+        let viewModel = AccountsViewModel(service: service)
+        viewModel.startAddingAccount()
+
+        await viewModel.signInWithGoogle { _, _ in
+            viewModel.cancelAddingAccount()
+            throw CancellationError()
+        }
+
+        #expect(session.cancels == 2, "once by the sheet, once when the browser closed")
+        #expect(!viewModel.isAddingAccount)
+    }
+
     @Test func everyErrorHasAMessage() {
         let errors: [AccountServiceError] = [
             .invalidAddress, .duplicateAccount, .accountNotFound, .storage, .secretStorageUnavailable,
-            .secretStorage,
+            .secretStorage, .signInUnavailable, .signInCancelled, .signInDenied, .signInFailed, .network,
+            .mailAccessNotGranted,
         ]
 
         let messages = errors.map(Strings.message(for:))

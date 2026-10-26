@@ -24,6 +24,9 @@ targets:
     platform: macOS
     sources:
       - path: ClientMail
+    configFiles:
+      Debug: Config/App.xcconfig
+      Release: Config/App.xcconfig
     dependencies:
       - package: ClientMailKit
         product: AccountsFeature
@@ -38,6 +41,8 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: YES
+        # Merged into the generated Info.plist: keys Xcode has no INFOPLIST_KEY_ setting for.
+        INFOPLIST_FILE: ClientMail/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: ClientMail
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         CODE_SIGN_ENTITLEMENTS: ClientMail/ClientMail.entitlements

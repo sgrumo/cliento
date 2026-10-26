@@ -1,0 +1,26 @@
+[package]
+name = "clientmail-oauth"
+description = "OAuth protocols (Google) for the ClientMail core."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+clientmail-domain.workspace = true
+getrandom.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+tokio = { workspace = true, features = ["rt", "net", "time"] }
+
+[lints]
+workspace = true

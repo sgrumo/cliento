@@ -115,6 +115,33 @@ struct RustAccountServiceTests {
         #expect(afterRemoval.isEmpty)
     }
 
+    @Test func googleSignInIsUnavailableWithoutAClientID() async throws {
+        let service = try RustAccountService.inMemory()
+
+        let available = await service.isGoogleSignInAvailable()
+
+        #expect(!available)
+        await #expect(throws: AccountServiceError.signInUnavailable) {
+            try await service.beginGoogleSignIn()
+        }
+    }
+
+    @Test func googleSignInStartsWithAClientID() async throws {
+        let service = try RustAccountService.inMemory(
+            googleClientID: "1234-abcd.apps.googleusercontent.com"
+        )
+
+        let session = try await service.beginGoogleSignIn()
+        session.cancel()
+
+        #expect(await service.isGoogleSignInAvailable())
+        #expect(session.authorizationURL.host() == "accounts.google.com")
+        #expect(session.callbackScheme == "com.googleusercontent.apps.1234-abcd")
+        await #expect(throws: AccountServiceError.signInCancelled) {
+            try await session.complete(callbackURL: URL(string: "com.googleusercontent.apps.1234-abcd:/x")!)
+        }
+    }
+
     @Test func undeclaredSwiftErrorsAreSecretStorageFailures() async throws {
         let service = try RustAccountService.inMemory(
             secrets: FailingSecretStore(throwing: UndeclaredError())

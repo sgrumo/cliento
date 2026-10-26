@@ -15,6 +15,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 [dependencies]
 clientmail-domain.workspace = true
 clientmail-engine.workspace = true
+clientmail-oauth.workspace = true
 clientmail-store.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }

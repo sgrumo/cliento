@@ -4,6 +4,7 @@ members = [
     "crates/clientmail-domain",
     "crates/clientmail-store",
     "crates/clientmail-engine",
+    "crates/clientmail-oauth",
     "crates/clientmail-ffi",
     "tools/uniffi-bindgen",
 ]
@@ -18,16 +19,23 @@ publish = false
 [workspace.dependencies]
 clientmail-domain = { path = "crates/clientmail-domain" }
 clientmail-engine = { path = "crates/clientmail-engine" }
+clientmail-oauth = { path = "crates/clientmail-oauth" }
 clientmail-store = { path = "crates/clientmail-store" }
+base64 = "0.23.1"
 email_address = "0.2.9"
+getrandom = "0.4.3"
 pollster = "1.0.1"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "form", "system-proxy"] }
 rusqlite = { version = "0.41.0", features = ["bundled"] }
 secrecy = "0.10.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", default-features = false }
 uniffi = "0.32.2"
+url = "2.5.8"
 uuid = { version = "1.29.0", features = ["v7"] }
 
 [workspace.lints.rust]

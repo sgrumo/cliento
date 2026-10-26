@@ -12,4 +12,16 @@ public enum AccountServiceError: Error, Hashable, Sendable {
     case secretStorageUnavailable
     /// The Keychain failed in a way retrying will not fix.
     case secretStorage
+    /// Signing in with this provider is not set up in this build.
+    case signInUnavailable
+    /// The sign-in was cancelled.
+    case signInCancelled
+    /// The user did not grant access at the provider.
+    case signInDenied
+    /// Signing in failed at the provider or on the way back from it.
+    case signInFailed
+    /// The server could not be reached. Retrying later can succeed.
+    case network
+    /// The user signed in but did not allow access to mail.
+    case mailAccessNotGranted
 }

@@ -7,8 +7,9 @@ use std::error::Error;
 use secrecy::SecretString;
 
 use crate::{
-    Account, AccountId, BlobId, EmailAddress, Mailbox, MailboxId, MailboxSyncState, Message,
-    MessageId, SecretKey, SecretKind, UnixTime,
+    Account, AccountId, AuthorizationCode, AuthorizationRequest, BlobId, EmailAddress, Mailbox,
+    MailboxId, MailboxSyncState, Message, MessageId, OAuthErrorKind, OAuthState, PkceVerifier,
+    SecretKey, SecretKind, TokenGrant, UnixTime,
 };
 
 /// Persists accounts.
@@ -328,4 +329,108 @@ pub trait SecretStore {
             .into_iter()
             .try_for_each(|kind| self.delete(&SecretKey::new(account, kind)).map(|_| ()))
     }
+}
+
+/// One OAuth provider's protocol: authorization URL, callback, token endpoint.
+///
+/// Implementations hold protocol details only; which account a grant belongs to, and what is
+/// stored, is decided in the engine.
+///
+/// The async methods return `impl Future + Send` instead of being `async fn`, because an
+/// `async fn` in a public trait cannot promise a `Send` future, which a multi-thread runtime
+/// needs.
+pub trait OAuthClient: Send + Sync + 'static {
+    /// The protocol error type.
+    type Error: Error + Send + Sync + 'static;
+
+    /// Classifies an error for the engine's rules.
+    ///
+    /// # Arguments
+    ///
+    /// * `error` - An error this client returned.
+    fn error_kind(error: &Self::Error) -> OAuthErrorKind;
+
+    /// Starts an authorization: a fresh PKCE verifier and state, and the URL to open.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error when the OS cannot provide random bytes.
+    fn authorization(&self) -> Result<AuthorizationRequest, Self::Error>;
+
+    /// Returns the URL scheme the browser sheet waits for.
+    fn callback_scheme(&self) -> &str;
+
+    /// Reads the authorization code out of the callback URL, after checking it belongs to this
+    /// authorization.
+    ///
+    /// The state is checked before anything else, error callbacks included, so a callback of
+    /// another sign-in can neither complete nor end this one (RFC 6749, section 10.12).
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The URL the browser was redirected to.
+    /// * `expected` - The state this authorization sent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error of kind [`OAuthErrorKind::Denied`] when the user refused consent, and of
+    /// kind [`OAuthErrorKind::Protocol`] when the URL is not a callback of this authorization.
+    fn parse_callback(
+        &self,
+        url: &str,
+        expected: &OAuthState,
+    ) -> Result<AuthorizationCode, Self::Error>;
+
+    /// Exchanges an authorization code for tokens.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - The code from the callback.
+    /// * `verifier` - The verifier of the same authorization.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error, classified by [`OAuthClient::error_kind`].
+    fn exchange(
+        &self,
+        code: AuthorizationCode,
+        verifier: PkceVerifier,
+    ) -> impl Future<Output = Result<TokenGrant, Self::Error>> + Send;
+
+    /// Obtains a new access token with a refresh token.
+    ///
+    /// # Arguments
+    ///
+    /// * `refresh_token` - The stored refresh token.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error; [`OAuthErrorKind::Rejected`] means the user must sign in again.
+    fn refresh(
+        &self,
+        refresh_token: SecretString,
+    ) -> impl Future<Output = Result<TokenGrant, Self::Error>> + Send;
+}
+
+/// Runs synchronous work (storage, platform callbacks) where it cannot block async tasks.
+///
+/// Async use cases wrap every call to a synchronous port in [`Blocking::run`] (decision record
+/// 0009).
+pub trait Blocking: Send + Sync + 'static {
+    /// Runs `work` and returns a future of its result.
+    ///
+    /// # Arguments
+    ///
+    /// * `work` - The synchronous work. It must own what it uses (`'static`), because it may run
+    ///   on another thread.
+    fn run<T, F>(&self, work: F) -> impl Future<Output = T> + Send + 'static
+    where
+        F: FnOnce() -> T + Send + 'static,
+        T: Send + 'static;
+}
+
+/// Tells the time, so tests can control it.
+pub trait Clock: Send + Sync + 'static {
+    /// Returns the current time.
+    fn now(&self) -> UnixTime;
 }

@@ -18,8 +18,14 @@ public final class RustAccountService: AccountService {
     /// - Parameters:
     ///   - databaseURL: File URL of the SQLite database.
     ///   - secrets: Where the core keeps account secrets; the app passes a ``KeychainSecretStore``.
+    ///   - googleClientID: The Google OAuth client id (`docs/google-oauth.md`), or `nil` to hide
+    ///     Google sign-in.
     /// - Throws: ``AccountServiceError/storage`` when the folder or database cannot be created.
-    public convenience init(databaseURL: URL, secrets: any SecretStoreBridge) throws(AccountServiceError) {
+    public convenience init(
+        databaseURL: URL,
+        secrets: any SecretStoreBridge,
+        googleClientID: String? = nil
+    ) throws(AccountServiceError) {
         let folder = databaseURL.deletingLastPathComponent()
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -27,20 +33,31 @@ public final class RustAccountService: AccountService {
             throw .storage
         }
         let client = try CoreCall.run {
-            try CoreClient.open(databasePath: databaseURL.path(percentEncoded: false), secrets: secrets)
+            try CoreClient.open(
+                databasePath: databaseURL.path(percentEncoded: false),
+                secrets: secrets,
+                googleClientId: googleClientID
+            )
         }
         self.init(client: client)
     }
 
     /// Creates a service backed by a private in-memory database, for tests and previews.
     ///
-    /// - Parameter secrets: Where the core keeps account secrets; in memory unless a test passes
-    ///   its own store.
+    /// - Parameters:
+    ///   - secrets: Where the core keeps account secrets; in memory unless a test passes its own
+    ///     store.
+    ///   - googleClientID: As for ``init(databaseURL:secrets:googleClientID:)``.
     /// - Throws: ``AccountServiceError/storage`` when the database cannot be created.
     public static func inMemory(
-        secrets: any SecretStoreBridge = InMemorySecretStore()
+        secrets: any SecretStoreBridge = InMemorySecretStore(),
+        googleClientID: String? = nil
     ) throws(AccountServiceError) -> RustAccountService {
-        RustAccountService(client: try CoreCall.run { try CoreClient.openInMemory(secrets: secrets) })
+        RustAccountService(
+            client: try CoreCall.run {
+                try CoreClient.openInMemory(secrets: secrets, googleClientId: googleClientID)
+            }
+        )
     }
 
     public func accounts() async throws(AccountServiceError) -> [Account] {
@@ -58,5 +75,13 @@ public final class RustAccountService: AccountService {
 
     public func removeAccount(id: Account.ID) async throws(AccountServiceError) {
         try await CoreCall.run { try await client.removeAccount(id: id) }
+    }
+
+    public func isGoogleSignInAvailable() async -> Bool {
+        client.googleSignInAvailable()
+    }
+
+    public func beginGoogleSignIn() async throws(AccountServiceError) -> any SignInSession {
+        try RustSignInSession(CoreCall.run { try client.beginGoogleSignIn() })
     }
 }

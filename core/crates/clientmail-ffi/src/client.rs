@@ -1,11 +1,14 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use clientmail_engine::AccountService;
+use clientmail_domain::ports::OAuthClient;
+use clientmail_engine::{AccountService, AccountStores, GoogleSignIn};
+use clientmail_oauth::{GoogleOAuth, OAuthError};
 use clientmail_store::SqliteStore;
 
 use crate::runtime::CoreRuntime;
 use crate::secrets::ForeignSecretStore;
+use crate::sign_in::{GoogleSignInSession, SignInFlow};
 use crate::{AccountRecord, CoreError, SecretStoreBridge};
 
 type Accounts = AccountService<SqliteStore, ForeignSecretStore>;
@@ -17,6 +20,7 @@ const _: () = {
     assert_send_sync::<CoreClient>();
     assert_send_sync::<CoreRuntime>();
     assert_send_sync::<Accounts>();
+    assert_send_sync::<GoogleSignInSession>();
 };
 
 /// The entry point Swift holds on to. One instance per database.
@@ -26,10 +30,23 @@ const _: () = {
 /// threads.
 #[derive(Debug, uniffi::Object)]
 pub struct CoreClient {
-    runtime: CoreRuntime,
+    // Shared with sign-in sessions, which keep it alive while they run.
+    runtime: Arc<CoreRuntime>,
     // Work runs on other threads and must own what it uses, so each call clones this `Arc` (a
     // reference count, not the service) into its closure.
     accounts: Arc<Accounts>,
+    google: GoogleSetup,
+}
+
+/// Google sign-in as configured at `open`.
+#[derive(Debug)]
+enum GoogleSetup {
+    /// No client id, or one that is not a Google client id: the button stays hidden.
+    Unavailable,
+    Ready(Arc<dyn SignInFlow>),
+    /// A valid client id, but the HTTPS client could not be built; signing in reports a failure
+    /// instead of hiding the button, so the problem is visible.
+    Broken,
 }
 
 #[uniffi::export]
@@ -40,6 +57,8 @@ impl CoreClient {
     ///
     /// * `database_path` - Absolute path of the `SQLite` file. Its folder must exist.
     /// * `secrets` - The platform's secret storage (the Keychain on macOS).
+    /// * `google_client_id` - The Google OAuth client id (`docs/google-oauth.md`). `None`, or an id
+    ///   that is not a Google client id, disables Google sign-in.
     ///
     /// # Errors
     ///
@@ -49,9 +68,14 @@ impl CoreClient {
     pub fn open(
         database_path: &str,
         secrets: Arc<dyn SecretStoreBridge>,
+        google_client_id: Option<String>,
     ) -> Result<Arc<Self>, CoreError> {
         let store = SqliteStore::open(Path::new(database_path))?;
-        Ok(Arc::new(Self::with_stores(store, secrets)?))
+        Ok(Arc::new(Self::with_parts(
+            store,
+            secrets,
+            google_oauth(google_client_id),
+        )?))
     }
 
     /// Opens a private in-memory database, for tests and `SwiftUI` previews.
@@ -59,15 +83,48 @@ impl CoreClient {
     /// # Arguments
     ///
     /// * `secrets` - The secret storage to use; previews pass an in-memory one.
+    /// * `google_client_id` - As for [`CoreClient::open`].
     ///
     /// # Errors
     ///
     /// Returns [`CoreError::Storage`] when the database cannot be created, and
     /// [`CoreError::Runtime`] when the core cannot start its threads.
     #[uniffi::constructor]
-    pub fn open_in_memory(secrets: Arc<dyn SecretStoreBridge>) -> Result<Arc<Self>, CoreError> {
+    pub fn open_in_memory(
+        secrets: Arc<dyn SecretStoreBridge>,
+        google_client_id: Option<String>,
+    ) -> Result<Arc<Self>, CoreError> {
         let store = SqliteStore::open_in_memory()?;
-        Ok(Arc::new(Self::with_stores(store, secrets)?))
+        Ok(Arc::new(Self::with_parts(
+            store,
+            secrets,
+            google_oauth(google_client_id),
+        )?))
+    }
+
+    /// Returns whether Google sign-in is configured.
+    #[must_use]
+    pub const fn google_sign_in_available(&self) -> bool {
+        !matches!(self.google, GoogleSetup::Unavailable)
+    }
+
+    /// Starts a Google sign-in. Nothing is stored until the session completes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CoreError::SignInUnavailable`] when no Google client id is configured, and
+    /// [`CoreError::SignInFailed`] when the sign-in cannot start (including an HTTPS client that
+    /// could not be built).
+    pub fn begin_google_sign_in(&self) -> Result<Arc<GoogleSignInSession>, CoreError> {
+        let flow = match &self.google {
+            GoogleSetup::Unavailable => return Err(CoreError::SignInUnavailable),
+            GoogleSetup::Broken => return Err(CoreError::SignInFailed),
+            GoogleSetup::Ready(flow) => Arc::clone(flow),
+        };
+        Ok(Arc::new(GoogleSignInSession::start(
+            flow,
+            Arc::clone(&self.runtime),
+        )?))
     }
 
     /// Returns every account, oldest first.
@@ -127,13 +184,41 @@ impl CoreClient {
 }
 
 impl CoreClient {
-    fn with_stores(
+    /// Builds the client around any OAuth client, so tests can pass a fake.
+    ///
+    /// `oauth` is `None` when sign-in is not configured, and an error when the client could not
+    /// be built.
+    pub(crate) fn with_parts<O: OAuthClient + std::fmt::Debug>(
         store: SqliteStore,
         secrets: Arc<dyn SecretStoreBridge>,
+        oauth: Option<Result<O, OAuthError>>,
     ) -> Result<Self, CoreError> {
+        let runtime = Arc::new(CoreRuntime::new()?);
+        let stores = Arc::new(AccountStores::new(store, ForeignSecretStore::new(secrets)));
+        let google = match oauth {
+            None => GoogleSetup::Unavailable,
+            Some(Err(_)) => GoogleSetup::Broken,
+            Some(Ok(oauth)) => GoogleSetup::Ready(Arc::new(GoogleSignIn::new(
+                Arc::clone(&stores),
+                Arc::new(oauth),
+                runtime.blocking_port(),
+            ))),
+        };
         Ok(Self {
-            runtime: CoreRuntime::new()?,
-            accounts: Arc::new(AccountService::new(store, ForeignSecretStore::new(secrets))),
+            accounts: Arc::new(AccountService::new(stores)),
+            runtime,
+            google,
         })
+    }
+}
+
+/// Builds Google's OAuth client: `None` when the id is missing or not a Google client id (a typo
+/// in the configuration never stops the app from launching), an error when the HTTPS client
+/// cannot be built.
+fn google_oauth(client_id: Option<String>) -> Option<Result<GoogleOAuth, OAuthError>> {
+    let client_id = client_id.filter(|id| !id.trim().is_empty())?;
+    match GoogleOAuth::new(&client_id) {
+        Err(OAuthError::InvalidClientId) => None,
+        built => Some(built),
     }
 }

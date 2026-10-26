@@ -61,7 +61,7 @@ impl SecretStoreBridge for LockedSecrets {
 }
 
 fn client() -> Result<Arc<CoreClient>, CoreError> {
-    CoreClient::open_in_memory(Arc::new(MemorySecrets::default()))
+    CoreClient::open_in_memory(Arc::new(MemorySecrets::default()), None)
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn add_list_and_remove_account() {
 #[test]
 fn removing_an_account_deletes_its_secret() {
     let secrets = Arc::new(MemorySecrets::default());
-    let client = CoreClient::open_in_memory(Arc::<MemorySecrets>::clone(&secrets)).unwrap();
+    let client = CoreClient::open_in_memory(Arc::<MemorySecrets>::clone(&secrets), None).unwrap();
     let added = block_on(client.add_account("ada@example.com".to_owned(), None)).unwrap();
     let label = format!("{}:oauth-refresh-token", added.id);
     secrets
@@ -104,7 +104,7 @@ fn removing_an_account_deletes_its_secret() {
 
 #[test]
 fn locked_secret_storage_keeps_the_account() {
-    let client = CoreClient::open_in_memory(Arc::new(LockedSecrets)).unwrap();
+    let client = CoreClient::open_in_memory(Arc::new(LockedSecrets), None).unwrap();
     let added = block_on(client.add_account("ada@example.com".to_owned(), None)).unwrap();
 
     let result = block_on(client.remove_account(added.id.clone()));
@@ -142,10 +142,10 @@ fn accounts_persist_across_reopen() {
     let path = path.to_str().unwrap();
     let secrets = Arc::new(MemorySecrets::default());
 
-    let first = CoreClient::open(path, Arc::<MemorySecrets>::clone(&secrets)).unwrap();
+    let first = CoreClient::open(path, Arc::<MemorySecrets>::clone(&secrets), None).unwrap();
     let added = block_on(first.add_account("ada@example.com".to_owned(), None)).unwrap();
     drop(first);
-    let reopened = block_on(CoreClient::open(path, secrets).unwrap().accounts()).unwrap();
+    let reopened = block_on(CoreClient::open(path, secrets, None).unwrap().accounts()).unwrap();
 
     assert_eq!(reopened, vec![added], "account survives reopen");
 }
@@ -188,7 +188,7 @@ impl SecretStoreBridge for ThreadRecordingSecrets {
 fn secret_bridge_runs_on_core_threads() {
     let secrets = Arc::new(ThreadRecordingSecrets::default());
     let client =
-        CoreClient::open_in_memory(Arc::<ThreadRecordingSecrets>::clone(&secrets)).unwrap();
+        CoreClient::open_in_memory(Arc::<ThreadRecordingSecrets>::clone(&secrets), None).unwrap();
     let added = block_on(client.add_account("ada@example.com".to_owned(), None)).unwrap();
 
     block_on(client.remove_account(added.id)).unwrap();
@@ -231,4 +231,40 @@ fn concurrent_calls_all_complete() {
 #[test]
 fn core_version_matches_crate_version() {
     assert_eq!(core_version(), env!("CARGO_PKG_VERSION"), "version");
+}
+
+#[test]
+fn google_sign_in_needs_a_valid_client_id() {
+    let missing = client().unwrap();
+    let invalid =
+        CoreClient::open_in_memory(Arc::new(MemorySecrets::default()), Some("nope".to_owned()))
+            .unwrap();
+    let valid = CoreClient::open_in_memory(
+        Arc::new(MemorySecrets::default()),
+        Some("1234-abcd.apps.googleusercontent.com".to_owned()),
+    )
+    .unwrap();
+
+    let session = valid.begin_google_sign_in().unwrap();
+
+    for client in [&missing, &invalid] {
+        assert!(!client.google_sign_in_available(), "unavailable");
+        assert_eq!(
+            client.begin_google_sign_in().err(),
+            Some(CoreError::SignInUnavailable),
+            "begin refused"
+        );
+    }
+    assert!(valid.google_sign_in_available(), "available");
+    assert!(
+        session
+            .authorization_url()
+            .starts_with("https://accounts.google.com/"),
+        "Google's URL"
+    );
+    assert_eq!(
+        session.callback_scheme(),
+        "com.googleusercontent.apps.1234-abcd",
+        "reversed client id"
+    );
 }

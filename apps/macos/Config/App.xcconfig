@@ -1,0 +1,6 @@
+// Build settings of the app target.
+
+// The Google OAuth client id, set in the optional, gitignored GoogleOAuth.xcconfig
+// (docs/google-oauth.md). Empty hides Google sign-in.
+GOOGLE_CLIENT_ID =
+#include? "GoogleOAuth.xcconfig"

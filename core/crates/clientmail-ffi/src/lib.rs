@@ -15,11 +15,13 @@ mod error;
 mod records;
 mod runtime;
 mod secrets;
+mod sign_in;
 
 pub use client::CoreClient;
 pub use error::CoreError;
 pub use records::{AccountRecord, ProviderKind};
 pub use secrets::{SecretBridgeError, SecretStoreBridge};
+pub use sign_in::GoogleSignInSession;
 
 uniffi::setup_scaffolding!();
 

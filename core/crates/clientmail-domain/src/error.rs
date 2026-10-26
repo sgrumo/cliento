@@ -34,4 +34,7 @@ pub enum DomainError {
     /// The text is not 64 hex characters naming a blob.
     #[error("invalid blob id")]
     InvalidBlobId,
+    /// The text is not a valid PKCE code verifier (RFC 7636).
+    #[error("invalid PKCE verifier")]
+    InvalidPkceVerifier,
 }

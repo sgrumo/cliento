@@ -19,4 +19,10 @@ public protocol AccountService: Sendable {
     ///
     /// - Parameter id: The id of the account to remove.
     func removeAccount(id: Account.ID) async throws(AccountServiceError)
+
+    /// Returns whether signing in with Google is set up in this build.
+    func isGoogleSignInAvailable() async -> Bool
+
+    /// Starts signing in with Google. Nothing is stored until the session completes.
+    func beginGoogleSignIn() async throws(AccountServiceError) -> any SignInSession
 }

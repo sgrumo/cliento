@@ -50,6 +50,19 @@ impl NewAccount {
     #[must_use]
     pub fn into_account(self) -> Account {
         let provider = Provider::detect(&self.address);
+        self.into_account_with(provider)
+    }
+
+    /// Turns the request into a stored account with a fresh id and a known provider.
+    ///
+    /// Signing in with Google makes a Gmail account even on a Google Workspace domain, which
+    /// [`Provider::detect`] cannot recognise.
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - The provider that syncs the account.
+    #[must_use]
+    pub fn into_account_with(self, provider: Provider) -> Account {
         Account {
             id: AccountId::generate(),
             address: self.address,
@@ -190,6 +203,15 @@ mod tests {
         assert_eq!(account.display_name(), Some("Ada"), "name must be trimmed");
         assert_eq!(account.provider(), Provider::Gmail, "provider from domain");
         assert_eq!(account.address().as_str(), "ada@gmail.com", "address kept");
+    }
+
+    #[test]
+    fn into_account_with_keeps_the_given_provider() {
+        let request = NewAccount::parse("ada@workspace.example", None).unwrap();
+
+        let account = request.into_account_with(Provider::Gmail);
+
+        assert_eq!(account.provider(), Provider::Gmail, "given, not detected");
     }
 
     #[test]

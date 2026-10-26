@@ -17,7 +17,14 @@ let package = Package(
             name: "CoreBridge",
             dependencies: ["CoreBridgeFFI"],
             // Generated code predates strict Swift 6 checking; isolation is enforced in CoreAdapter.
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            // The Rust core's HTTPS client reads proxy settings (SystemConfiguration) and checks
+            // certificates with the system trust store (Security). A static library cannot
+            // declare these itself.
+            linkerSettings: [
+                .linkedFramework("SystemConfiguration"),
+                .linkedFramework("Security"),
+            ]
         ),
         .target(name: "MailDomain"),
         .target(name: "CoreAdapter", dependencies: ["MailDomain", "CoreBridge"]),

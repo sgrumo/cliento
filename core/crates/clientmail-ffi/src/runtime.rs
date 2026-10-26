@@ -1,6 +1,8 @@
 use std::panic;
 
+use clientmail_domain::ports::Blocking;
 use tokio::runtime::{Builder, Handle, Runtime};
+use tokio::task::{JoinError, JoinHandle};
 
 use crate::CoreError;
 
@@ -68,25 +70,84 @@ impl CoreRuntime {
         F: FnOnce() -> T + Send + 'static,
         T: Send + 'static,
     {
-        let task = self.handle.spawn_blocking(work);
-        async move {
-            task.await
-                .unwrap_or_else(|error| match error.try_into_panic() {
-                    Ok(payload) => panic::resume_unwind(payload),
-                    Err(_cancelled) => cancelled(),
-                })
+        blocking_on(&self.handle, work)
+    }
+
+    /// Runs an async task on the workers. Network futures must run here: an exported method's
+    /// body is polled by Swift, outside any Tokio context.
+    ///
+    /// Await the handle with [`finished`]; abort it through `JoinHandle::abort_handle`.
+    ///
+    /// # Arguments
+    ///
+    /// * `task` - The future to run. It must own what it uses (`'static`).
+    pub(crate) fn spawn<F>(&self, task: F) -> JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.handle.spawn(task)
+    }
+
+    /// Returns the [`Blocking`] port for engine use cases, usable from spawned tasks.
+    pub(crate) fn blocking_port(&self) -> RuntimeBlocking {
+        RuntimeBlocking {
+            handle: self.handle.clone(),
         }
+    }
+}
+
+/// The domain's [`Blocking`] port over the runtime's blocking pool (decision record 0009).
+///
+/// It holds a `Handle`, not the runtime, so engine use cases can keep it inside spawned tasks.
+#[derive(Debug, Clone)]
+pub(crate) struct RuntimeBlocking {
+    handle: Handle,
+}
+
+impl Blocking for RuntimeBlocking {
+    fn run<T, F>(&self, work: F) -> impl Future<Output = T> + Send + 'static
+    where
+        F: FnOnce() -> T + Send + 'static,
+        T: Send + 'static,
+    {
+        blocking_on(&self.handle, work)
+    }
+}
+
+fn blocking_on<T, F>(handle: &Handle, work: F) -> impl Future<Output = T> + Send + 'static
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    let task = handle.spawn_blocking(work);
+    async move { finished(task.await).unwrap_or_else(|| cancelled()) }
+}
+
+/// Unwraps a task's result: its value, or `None` when it was aborted or the runtime shut down.
+///
+/// # Panics
+///
+/// A panic inside the task resumes here, so `UniFFI` reports it as it does for a synchronous call.
+pub(crate) fn finished<T>(result: Result<T, JoinError>) -> Option<T> {
+    match result {
+        Ok(value) => Some(value),
+        Err(error) => match error.try_into_panic() {
+            Ok(payload) => panic::resume_unwind(payload),
+            Err(_cancelled) => None,
+        },
     }
 }
 
 /// A blocking task is only cancelled when the runtime shuts down before it starts. The future from
 /// [`CoreRuntime::blocking`] does not keep the runtime alive, so this stays unreachable only while
-/// callers await it before dropping the runtime: every `CoreClient` method does, because `UniFFI`
-/// keeps the client alive until the call returns. Code that keeps such a future past the client
-/// (a spawned task, from 1.4) must not rely on this.
+/// the runtime lives until the future is awaited: every `CoreClient` method keeps it alive,
+/// because `UniFFI` keeps the client alive until the call returns, and a sign-in session holds
+/// the runtime too. A spawned task that outlives both would hit this when the runtime shuts down,
+/// which only happens when nothing is waiting for the task any more.
 #[expect(
     clippy::panic,
-    reason = "unreachable while callers await `blocking` before the client is dropped"
+    reason = "unreachable while the runtime outlives the futures that wait on it"
 )]
 fn cancelled() -> ! {
     panic!("the core runtime shut down while a call was waiting")
@@ -164,6 +225,42 @@ mod tests {
             Some(&"boom"),
             "the work's own panic, not the cancellation one"
         );
+    }
+
+    #[test]
+    fn spawned_tasks_run_on_core_threads_and_return_their_value() {
+        let runtime = CoreRuntime::new().unwrap();
+
+        let name = pollster::block_on(
+            runtime.spawn(async { std::thread::current().name().map(ToOwned::to_owned) }),
+        );
+
+        assert_eq!(
+            finished(name).flatten().as_deref(),
+            Some(THREAD_NAME),
+            "worker thread"
+        );
+    }
+
+    #[test]
+    fn an_aborted_task_finishes_with_none() {
+        let runtime = CoreRuntime::new().unwrap();
+        let task = runtime.spawn(std::future::pending::<()>());
+
+        task.abort();
+        let result = finished(pollster::block_on(task));
+
+        assert_eq!(result, None, "aborted");
+    }
+
+    #[test]
+    fn the_blocking_port_works_inside_a_spawned_task() {
+        let runtime = CoreRuntime::new().unwrap();
+        let port = runtime.blocking_port();
+
+        let value = pollster::block_on(runtime.spawn(async move { port.run(|| 42).await }));
+
+        assert_eq!(finished(value), Some(42), "value through the port");
     }
 
     #[test]

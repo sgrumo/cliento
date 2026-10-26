@@ -11,5 +11,8 @@ publish.workspace = true
 clientmail-domain.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+pollster.workspace = true
+
 [lints]
 workspace = true

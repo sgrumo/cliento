@@ -46,4 +46,4 @@ gained.
 - The exported method's body is polled on a Swift thread with no Tokio context, so async network
   work must be spawned onto the runtime (1.4 adds that).
 - Async code added later (token refresh, sync) must not call the synchronous store or secret store
-  from a worker. How engine use cases reach them through the blocking pool is decided in 1.4.
+  from a worker. Engine use cases reach them through the `Blocking` port (decision record 0009).

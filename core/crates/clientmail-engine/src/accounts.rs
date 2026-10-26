@@ -1,16 +1,18 @@
+use std::sync::Arc;
+
 use clientmail_domain::ports::{AccountRepository, SecretStore};
 use clientmail_domain::{Account, AccountId, NewAccount};
 
-use crate::EngineError;
+use crate::{AccountStores, EngineError};
 
 /// Adds, lists and removes accounts.
 ///
 /// Generic over the repository and the secret store so tests can pass fakes. `R` and `S` are
-/// resolved at compile time, so this costs nothing at runtime compared to concrete types.
+/// resolved at compile time, so this costs nothing at runtime compared to concrete types. Its
+/// methods block on storage; callers on an async runtime run them on a blocking thread.
 #[derive(Debug)]
 pub struct AccountService<R, S> {
-    repository: R,
-    secrets: S,
+    stores: Arc<AccountStores<R, S>>,
 }
 
 impl<R: AccountRepository, S: SecretStore> AccountService<R, S> {
@@ -18,14 +20,10 @@ impl<R: AccountRepository, S: SecretStore> AccountService<R, S> {
     ///
     /// # Arguments
     ///
-    /// * `repository` - Where accounts are stored.
-    /// * `secrets` - Where account secrets are stored.
+    /// * `stores` - The state shared with the other account use cases.
     #[must_use]
-    pub const fn new(repository: R, secrets: S) -> Self {
-        Self {
-            repository,
-            secrets,
-        }
+    pub const fn new(stores: Arc<AccountStores<R, S>>) -> Self {
+        Self { stores }
     }
 
     /// Returns every account, oldest first.
@@ -34,7 +32,7 @@ impl<R: AccountRepository, S: SecretStore> AccountService<R, S> {
     ///
     /// Returns [`EngineError::Storage`] when the repository fails.
     pub fn accounts(&self) -> Result<Vec<Account>, EngineError> {
-        self.repository.list().map_err(EngineError::storage)
+        self.stores.repository.list().map_err(EngineError::storage)
     }
 
     /// Validates and stores a new account.
@@ -59,24 +57,23 @@ impl<R: AccountRepository, S: SecretStore> AccountService<R, S> {
         display_name: Option<&str>,
     ) -> Result<Account, EngineError> {
         let request = NewAccount::parse(address, display_name)?;
-        let existing = self
-            .repository
+        let repository = &self.stores.repository;
+        let existing = repository
             .find_by_address(request.address())
             .map_err(EngineError::storage)?;
         if existing.is_some() {
             return Err(EngineError::DuplicateAccount);
         }
         let account = request.into_account();
-        self.repository
-            .insert(&account)
-            .map_err(EngineError::storage)?;
+        repository.insert(&account).map_err(EngineError::storage)?;
         Ok(account)
     }
 
-    /// Removes an account and its secrets.
+    /// Removes an account, its secrets and its cached access token.
     ///
-    /// The account must exist; then its secrets go first, so that if they cannot be deleted the
-    /// account stays and the user can retry, instead of a token outliving the account.
+    /// The account must exist; then, under the account's lock, its secrets go first, so that if
+    /// they cannot be deleted the account stays and the user can retry, instead of a token
+    /// outliving the account. The lock keeps a token refresh from writing in between.
     ///
     /// # Arguments
     ///
@@ -89,13 +86,20 @@ impl<R: AccountRepository, S: SecretStore> AccountService<R, S> {
     /// some of its secrets may already be gone), and [`EngineError::Storage`] when the repository
     /// fails.
     pub fn remove_account(&self, id: AccountId) -> Result<(), EngineError> {
-        if !self.repository.exists(id).map_err(EngineError::storage)? {
+        let stores = &self.stores;
+        if !stores.repository.exists(id).map_err(EngineError::storage)? {
             return Err(EngineError::AccountNotFound);
         }
-        self.secrets
-            .delete_account(id)
-            .map_err(EngineError::secrets)?;
-        let deleted = self.repository.delete(id).map_err(EngineError::storage)?;
+        let deleted = stores.locks.with(id, || {
+            stores
+                .secrets
+                .delete_account(id)
+                .map_err(EngineError::secrets)?;
+            let deleted = stores.repository.delete(id).map_err(EngineError::storage)?;
+            stores.tokens.remove(id);
+            Ok::<_, EngineError>(deleted)
+        })?;
+        stores.locks.forget(id);
         if deleted {
             Ok(())
         } else {
@@ -106,149 +110,21 @@ impl<R: AccountRepository, S: SecretStore> AccountService<R, S> {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::collections::HashMap;
-    use std::fmt;
-
-    use clientmail_domain::{
-        DomainError, EmailAddress, ExposeSecret, Provider, SecretKey, SecretKind, SecretString,
-    };
+    use clientmail_domain::{AccessToken, DomainError, Provider, SecretString, UnixTime};
 
     use super::*;
-
-    /// In-memory secret store keyed by label. With `failing` set, every call fails.
-    #[derive(Default)]
-    struct FakeSecrets {
-        items: RefCell<HashMap<String, String>>,
-        failing: bool,
-    }
-
-    impl FakeSecrets {
-        fn failing() -> Self {
-            Self {
-                failing: true,
-                ..Self::default()
-            }
-        }
-
-        fn check(&self) -> Result<(), FakeError> {
-            if self.failing { Err(FakeError) } else { Ok(()) }
-        }
-    }
-
-    impl SecretStore for FakeSecrets {
-        type Error = FakeError;
-
-        fn read(&self, key: &SecretKey) -> Result<Option<SecretString>, FakeError> {
-            self.check()?;
-            Ok(self
-                .items
-                .borrow()
-                .get(&key.label())
-                .map(|value| SecretString::from(value.clone())))
-        }
-
-        fn write(&self, key: &SecretKey, secret: &SecretString) -> Result<(), FakeError> {
-            self.check()?;
-            self.items
-                .borrow_mut()
-                .insert(key.label(), secret.expose_secret().to_owned());
-            Ok(())
-        }
-
-        fn delete(&self, key: &SecretKey) -> Result<bool, FakeError> {
-            self.check()?;
-            Ok(self.items.borrow_mut().remove(&key.label()).is_some())
-        }
-    }
+    use crate::fakes::{FailingRepository, FakeRepository, FakeSecrets, stores};
+    use crate::stores::token_key;
 
     fn service() -> AccountService<FakeRepository, FakeSecrets> {
-        AccountService::new(FakeRepository::default(), FakeSecrets::default())
+        AccountService::new(stores())
     }
 
-    fn token_key(account: AccountId) -> SecretKey {
-        SecretKey::new(account, SecretKind::OAuthRefreshToken)
-    }
-
-    /// In-memory repository. `RefCell` allows mutation behind `&self`, checked at runtime.
-    #[derive(Default)]
-    struct FakeRepository {
-        accounts: RefCell<Vec<Account>>,
-    }
-
-    #[derive(Debug)]
-    struct FakeError;
-
-    impl fmt::Display for FakeError {
-        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("fake failure")
-        }
-    }
-
-    impl std::error::Error for FakeError {}
-
-    impl AccountRepository for FakeRepository {
-        type Error = FakeError;
-
-        fn list(&self) -> Result<Vec<Account>, FakeError> {
-            Ok(self.accounts.borrow().clone())
-        }
-
-        fn find_by_address(&self, address: &EmailAddress) -> Result<Option<Account>, FakeError> {
-            Ok(self
-                .accounts
-                .borrow()
-                .iter()
-                .find(|account| account.address() == address)
-                .cloned())
-        }
-
-        fn insert(&self, account: &Account) -> Result<(), FakeError> {
-            self.accounts.borrow_mut().push(account.clone());
-            Ok(())
-        }
-
-        fn exists(&self, id: AccountId) -> Result<bool, FakeError> {
-            Ok(self
-                .accounts
-                .borrow()
-                .iter()
-                .any(|account| account.id() == id))
-        }
-
-        fn delete(&self, id: AccountId) -> Result<bool, FakeError> {
-            let mut accounts = self.accounts.borrow_mut();
-            let before = accounts.len();
-            accounts.retain(|account| account.id() != id);
-            Ok(accounts.len() < before)
-        }
-    }
-
-    /// Repository whose every call fails.
-    struct FailingRepository;
-
-    impl AccountRepository for FailingRepository {
-        type Error = FakeError;
-
-        fn list(&self) -> Result<Vec<Account>, FakeError> {
-            Err(FakeError)
-        }
-
-        fn find_by_address(&self, _address: &EmailAddress) -> Result<Option<Account>, FakeError> {
-            Err(FakeError)
-        }
-
-        fn insert(&self, _account: &Account) -> Result<(), FakeError> {
-            Err(FakeError)
-        }
-
-        fn exists(&self, _id: AccountId) -> Result<bool, FakeError> {
-            Err(FakeError)
-        }
-
-        fn delete(&self, _id: AccountId) -> Result<bool, FakeError> {
-            Err(FakeError)
-        }
+    fn service_with(secrets: FakeSecrets) -> AccountService<FakeRepository, FakeSecrets> {
+        AccountService::new(Arc::new(AccountStores::new(
+            FakeRepository::default(),
+            secrets,
+        )))
     }
 
     #[test]
@@ -309,6 +185,7 @@ mod tests {
         let kept = service.add_account("bob@example.com", None).unwrap();
         for account in [removed.id(), kept.id()] {
             service
+                .stores
                 .secrets
                 .write(&token_key(account), &SecretString::from("token"))
                 .unwrap();
@@ -316,27 +193,37 @@ mod tests {
 
         service.remove_account(removed.id()).unwrap();
 
+        let secrets = &service.stores.secrets;
         assert!(
-            service
-                .secrets
-                .read(&token_key(removed.id()))
-                .unwrap()
-                .is_none(),
+            secrets.token(removed.id()).is_none(),
             "removed account's token deleted"
         );
         assert!(
-            service
-                .secrets
-                .read(&token_key(kept.id()))
-                .unwrap()
-                .is_some(),
+            secrets.token(kept.id()).is_some(),
             "other account's token kept"
         );
     }
 
     #[test]
+    fn remove_account_clears_the_cached_access_token() {
+        let service = service();
+        let added = service.add_account("ada@example.com", None).unwrap();
+        service.stores.tokens.put(
+            added.id(),
+            AccessToken::new(SecretString::from("access"), UnixTime::from_seconds(9_999)),
+        );
+
+        service.remove_account(added.id()).unwrap();
+
+        assert!(
+            service.stores.tokens.get(added.id()).is_none(),
+            "cache cleared"
+        );
+    }
+
+    #[test]
     fn remove_account_keeps_the_account_when_secrets_cannot_be_deleted() {
-        let service = AccountService::new(FakeRepository::default(), FakeSecrets::failing());
+        let service = service_with(FakeSecrets::failing());
         let added = service.add_account("ada@example.com", None).unwrap();
 
         let result = service.remove_account(added.id());
@@ -354,7 +241,7 @@ mod tests {
 
     #[test]
     fn remove_account_of_an_unknown_id_is_not_found_even_when_secrets_fail() {
-        let service = AccountService::new(FakeRepository::default(), FakeSecrets::failing());
+        let service = service_with(FakeSecrets::failing());
 
         let result = service.remove_account(AccountId::generate());
 
@@ -378,7 +265,10 @@ mod tests {
 
     #[test]
     fn storage_failures_are_wrapped() {
-        let service = AccountService::new(FailingRepository, FakeSecrets::default());
+        let service = AccountService::new(Arc::new(AccountStores::new(
+            FailingRepository,
+            FakeSecrets::default(),
+        )));
 
         let list = service.accounts();
         let add = service.add_account("ada@example.com", None);

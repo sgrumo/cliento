@@ -55,6 +55,13 @@ extension AccountServiceError {
         case .SecretStorage: self = .secretStorage
         // Only the constructors return it, and the app shows the same "could not open" screen.
         case .Runtime: self = .storage
+        case .SignInUnavailable: self = .signInUnavailable
+        case .SignInCancelled: self = .signInCancelled
+        case .SignInDenied: self = .signInDenied
+        // No call returns `SignInRequired` yet; IMAP (1.6) does, with its own case.
+        case .SignInFailed, .SignInRequired: self = .signInFailed
+        case .Network: self = .network
+        case .MailAccessNotGranted: self = .mailAccessNotGranted
         }
     }
 }

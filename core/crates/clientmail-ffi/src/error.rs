@@ -33,6 +33,27 @@ pub enum CoreError {
     /// panics instead, inside Tokio.
     #[error("the core could not start")]
     Runtime,
+    /// Google sign-in is not configured: no valid client id.
+    #[error("sign-in is not available")]
+    SignInUnavailable,
+    /// The sign-in was cancelled.
+    #[error("sign-in was cancelled")]
+    SignInCancelled,
+    /// The user refused consent at the provider.
+    #[error("sign-in was denied")]
+    SignInDenied,
+    /// Signing in failed at the provider or on the way back from it.
+    #[error("sign-in failed")]
+    SignInFailed,
+    /// The account's sign-in expired or was revoked; the user must sign in again.
+    #[error("sign-in required")]
+    SignInRequired,
+    /// The provider could not be reached. Retrying later can succeed.
+    #[error("network unavailable")]
+    Network,
+    /// The user signed in but did not allow access to mail.
+    #[error("mail access was not granted")]
+    MailAccessNotGranted,
 }
 
 impl From<DomainError> for CoreError {
@@ -47,6 +68,8 @@ impl From<DomainError> for CoreError {
             | DomainError::InvalidMailboxPath { .. }
             | DomainError::InvalidKeyword
             | DomainError::InvalidBlobId => Self::Storage,
+            // Only generated verifiers reach this, so it means sign-in could not start.
+            DomainError::InvalidPkceVerifier => Self::SignInFailed,
         }
     }
 }
@@ -58,6 +81,11 @@ impl From<EngineError> for CoreError {
             EngineError::DuplicateAccount => Self::DuplicateAccount,
             EngineError::AccountNotFound => Self::AccountNotFound,
             EngineError::Storage(_) => Self::Storage,
+            EngineError::SignInDenied => Self::SignInDenied,
+            EngineError::SignInFailed(_) => Self::SignInFailed,
+            EngineError::SignInRequired => Self::SignInRequired,
+            EngineError::Network(_) => Self::Network,
+            EngineError::MailAccessNotGranted => Self::MailAccessNotGranted,
             // The engine boxes the secret store's error; for this crate that store is the bridge, so
             // `downcast_ref` recovers its `SecretBridgeError` to tell locked from broken.
             EngineError::Secrets(source) => match source.downcast_ref::<SecretBridgeError>() {
@@ -119,6 +147,29 @@ mod tests {
             CoreError::SecretStorage,
             "unexpected"
         );
+    }
+
+    #[test]
+    fn sign_in_errors_map_to_their_cases() {
+        let source = || Box::new(std::fmt::Error) as Box<dyn std::error::Error + Send + Sync>;
+        let cases = [
+            (EngineError::SignInDenied, CoreError::SignInDenied),
+            (EngineError::SignInFailed(source()), CoreError::SignInFailed),
+            (EngineError::SignInRequired, CoreError::SignInRequired),
+            (EngineError::Network(source()), CoreError::Network),
+            (
+                EngineError::MailAccessNotGranted,
+                CoreError::MailAccessNotGranted,
+            ),
+            (
+                EngineError::InvalidInput(DomainError::InvalidPkceVerifier),
+                CoreError::SignInFailed,
+            ),
+        ];
+
+        for (engine, expected) in cases {
+            assert_eq!(CoreError::from(engine), expected, "{expected:?}");
+        }
     }
 
     #[test]

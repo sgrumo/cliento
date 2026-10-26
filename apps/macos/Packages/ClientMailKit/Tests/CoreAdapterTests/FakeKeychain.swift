@@ -1,5 +1,6 @@
 import CoreAdapter
 import Foundation
+import LocalAuthentication
 import Security
 import Synchronization
 
@@ -29,6 +30,7 @@ final class FakeKeychain: KeychainClient {
     private struct State {
         var items: [String: Data] = [:]
         var queries: [Operation: Query] = [:]
+        var interactionNotAllowed: [Operation: Bool] = [:]
         var lastAdded: AddedItem?
         var updates = 0
         var failure: OSStatus?
@@ -63,6 +65,12 @@ final class FakeKeychain: KeychainClient {
         state.withLock { $0.queries[operation] }
     }
 
+    /// Whether the last call of `operation` carried an authentication context that forbids
+    /// prompts; `nil` when it carried no context.
+    func interactionNotAllowed(in operation: Operation) -> Bool? {
+        state.withLock { $0.interactionNotAllowed[operation] }
+    }
+
     /// The attributes of the last successful `add`.
     var lastAdded: AddedItem? { state.withLock { $0.lastAdded } }
 
@@ -70,6 +78,7 @@ final class FakeKeychain: KeychainClient {
     var updates: Int { state.withLock { $0.updates } }
 
     func add(_ attributes: [String: Any]) -> OSStatus {
+        record(.add, attributes)
         let query = Self.query(of: attributes)
         let item = AddedItem(
             query: query,
@@ -88,6 +97,7 @@ final class FakeKeychain: KeychainClient {
     }
 
     func update(_ query: [String: Any], with attributes: [String: Any]) -> OSStatus {
+        record(.update, query)
         let recorded = Self.query(of: query)
         let data = attributes[kSecValueData as String] as? Data
         return state.withLock { state in
@@ -102,6 +112,7 @@ final class FakeKeychain: KeychainClient {
     }
 
     func copyData(matching query: [String: Any]) -> (status: OSStatus, data: Data?) {
+        record(.copy, query)
         let recorded = Self.query(of: query)
         return state.withLock { state in
             state.queries[.copy] = recorded
@@ -115,6 +126,7 @@ final class FakeKeychain: KeychainClient {
     }
 
     func delete(_ query: [String: Any]) -> OSStatus {
+        record(.delete, query)
         let recorded = Self.query(of: query)
         return state.withLock { state in
             state.queries[.delete] = recorded
@@ -122,6 +134,13 @@ final class FakeKeychain: KeychainClient {
             return state.items.removeValue(forKey: recorded.account ?? "") == nil
                 ? errSecItemNotFound : errSecSuccess
         }
+    }
+
+    /// Records the call's authentication context; `LAContext` is not `Sendable`, so only its flag
+    /// is kept.
+    private func record(_ operation: Operation, _ attributes: [String: Any]) {
+        let context = attributes[kSecUseAuthenticationContext as String] as? LAContext
+        state.withLock { $0.interactionNotAllowed[operation] = context?.interactionNotAllowed }
     }
 
     private static func query(of attributes: [String: Any]) -> Query {

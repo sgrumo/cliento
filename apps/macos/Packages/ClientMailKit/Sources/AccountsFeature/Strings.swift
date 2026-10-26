@@ -42,6 +42,19 @@ enum Strings {
     static var ok: String {
         String(localized: "ok", defaultValue: "OK", bundle: .module)
     }
+    static var signInWithGoogle: String {
+        String(localized: "signInWithGoogle", defaultValue: "Sign in with Google", bundle: .module)
+    }
+    static var signInWithGoogleFooter: String {
+        String(
+            localized: "signInWithGoogleFooter",
+            defaultValue: "For Gmail and Google Workspace accounts.",
+            bundle: .module
+        )
+    }
+    static var signingIn: String {
+        String(localized: "signingIn", defaultValue: "Signing in…", bundle: .module)
+    }
 
     /// Returns the message for an account error.
     static func message(for error: AccountServiceError) -> String {
@@ -80,6 +93,43 @@ enum Strings {
             String(
                 localized: "errorSecretStorage",
                 defaultValue: "ClientMail could not use the Keychain. Check Keychain Access for problems.",
+                bundle: .module
+            )
+        case .signInUnavailable:
+            String(
+                localized: "errorSignInUnavailable",
+                defaultValue: "Signing in with Google is not set up in this build of ClientMail.",
+                bundle: .module
+            )
+        case .signInCancelled:
+            String(
+                localized: "errorSignInCancelled",
+                defaultValue: "The sign-in was cancelled.",
+                bundle: .module
+            )
+        case .signInDenied:
+            String(
+                localized: "errorSignInDenied",
+                defaultValue: "ClientMail was not given access to the account.",
+                bundle: .module
+            )
+        case .signInFailed:
+            String(
+                localized: "errorSignInFailed",
+                defaultValue: "Signing in did not work. Try again.",
+                bundle: .module
+            )
+        case .mailAccessNotGranted:
+            String(
+                localized: "errorMailAccessNotGranted",
+                defaultValue:
+                    "ClientMail needs access to your mail. Sign in again and allow access to Gmail.",
+                bundle: .module
+            )
+        case .network:
+            String(
+                localized: "errorNetwork",
+                defaultValue: "ClientMail could not reach the server. Check your connection and try again.",
                 bundle: .module
             )
         }

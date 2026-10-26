@@ -19,6 +19,7 @@ workspace uses. The root `AGENTS.md` still applies.
 | `clientmail-domain` | Types, validation, port traits. No I/O. | external pure crates only |
 | `clientmail-store` | SQLite persistence behind the domain ports | `clientmail-domain` |
 | `clientmail-engine` | Use cases. Talks to the outside only through ports. | `clientmail-domain` |
+| `clientmail-oauth` | OAuth protocols (Google): PKCE, URLs, token endpoint over HTTPS. Implements `OAuthClient` | `clientmail-domain` |
 | `clientmail-ffi` | UniFFI API for Swift. Composition root. | all of the above |
 | `tools/uniffi-bindgen` | CLI that generates the Swift bindings | `uniffi` |
 

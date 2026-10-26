@@ -1,5 +1,6 @@
 import CoreBridge
 import Foundation
+import LocalAuthentication
 import Security
 
 /// Stores the core's secrets as generic-password items in the Keychain.
@@ -7,6 +8,9 @@ import Security
 /// A platform adapter: it translates the core's calls into Keychain queries and holds no rules.
 /// Items are readable after the first unlock (sync runs while the screen is locked) and bound to
 /// this Mac: never synced through iCloud, never restored onto another Mac (decision record 0002).
+/// Reads ask for no user interaction, because the core reads tokens in the background, where a
+/// prompt would block a core thread until someone answers it. Whether the login keychain honours
+/// this for its unlock and "allow access" dialogs is checked in step 1.6.
 public final class KeychainSecretStore: SecretStoreBridge {
     /// The Keychain service every ClientMail item uses.
     public static let defaultService = "dev.samuelemedici.clientmail"
@@ -28,6 +32,9 @@ public final class KeychainSecretStore: SecretStoreBridge {
         var query = itemQuery(label: label)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        query[kSecUseAuthenticationContext as String] = context
         let (status, data) = client.copyData(matching: query)
         switch status {
         case errSecSuccess:

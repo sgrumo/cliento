@@ -22,6 +22,7 @@
 │ clientmail-ffi        UniFFI API, composes everything below   │
 │ clientmail-engine     use cases: accounts, sync, actions      │
 │ clientmail-store      SQLite: schema, migrations, queries     │
+│ clientmail-oauth      Google OAuth: PKCE, token exchange      │
 │ clientmail-<proto>    IMAP / Gmail / Graph / SMTP adapters     │
 │ clientmail-domain     types, validation, port traits          │
 └───────────────────────────────────────────────────────────────┘
@@ -53,6 +54,14 @@ keychain.
 **Commands** go down: a view model calls a `MailDomain` protocol, `CoreAdapter` awaits the
 generated Swift, which calls the Rust `CoreClient`, which runs an engine use case on its runtime.
 
+**Sign-in** (Google, from 1.4): the core builds the authorization URL with a PKCE verifier and a
+random state; the Accounts sheet opens it in an ephemeral `WebAuthenticationSession` and passes
+the callback URL back. The core checks the callback's redirect path and state, exchanges the
+code over HTTPS (`clientmail-oauth`), refuses a grant without mail access, then stores the account
+row and only then its refresh token. Signing in again to an existing account writes the new token
+under the account's lock, only if the account still exists. Access tokens stay in memory. Google
+OAuth setup: `docs/google-oauth.md`.
+
 **Changes** come up. Today the view model refreshes itself after each call. From milestone 2,
 the core pushes change events through a UniFFI callback interface, so sync results reach the UI
 without polling.
@@ -69,6 +78,11 @@ without polling.
   named `clientmail-core`.
 - Nothing blocks a Tokio worker. SQLite calls and platform callbacks (the Keychain) run on the
   runtime's blocking pool, so platform callbacks stay synchronous.
+- Async work (HTTPS now, IMAP later) runs on the workers through `CoreRuntime::spawn`. Async
+  engine use cases reach the synchronous ports through the `Blocking` port, which the FFI crate
+  implements with the blocking pool (decision record 0009).
+- Writing an account's token and removing that account take the same per-account lock in the
+  engine, so a refreshed token never outlives its account.
 - View models are `@MainActor`.
 - The store serialises access to one SQLite connection with a `Mutex`. When sync arrives, the
   store gets a pool: one writer, several readers (SQLite WAL mode is already on).

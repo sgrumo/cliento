@@ -13,6 +13,7 @@ mod flags;
 mod id;
 mod mailbox;
 mod message;
+mod oauth;
 mod participant;
 pub mod ports;
 mod provider;
@@ -30,6 +31,10 @@ pub use mailbox::{Mailbox, MailboxId, MailboxPath, MailboxRole};
 pub use message::{
     GmailMessageId, GmailThreadId, HeaderFields, HeaderMessageId, ImapUid, Message, MessageHeader,
     MessageId, RemoteMessageRef, UidValidity,
+};
+pub use oauth::{
+    AccessToken, AuthorizationCode, AuthorizationRequest, OAuthErrorKind, OAuthIdentity,
+    OAuthState, PkceVerifier, TokenGrant,
 };
 pub use participant::{Participant, ParticipantAddress};
 pub use provider::Provider;

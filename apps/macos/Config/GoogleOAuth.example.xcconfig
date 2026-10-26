@@ -1,0 +1,2 @@
+// Copy to GoogleOAuth.xcconfig (gitignored) and set your own client id (docs/google-oauth.md).
+GOOGLE_CLIENT_ID = 1234-abcd.apps.googleusercontent.com

@@ -5,6 +5,14 @@
 
 mod accounts;
 mod error;
+#[cfg(test)]
+mod fakes;
+mod sign_in;
+mod stores;
+mod tokens;
 
 pub use accounts::AccountService;
-pub use error::EngineError;
+pub use error::{EngineError, SignInProblem};
+pub use sign_in::{GoogleSignIn, PendingSignIn};
+pub use stores::AccountStores;
+pub use tokens::TokenService;

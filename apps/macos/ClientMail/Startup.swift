@@ -18,11 +18,19 @@ enum Startup {
         do {
             let service = try RustAccountService(
                 databaseURL: databaseURL,
-                secrets: KeychainSecretStore(client: SystemKeychain())
+                secrets: KeychainSecretStore(client: SystemKeychain()),
+                googleClientID: googleClientID()
             )
             return .ready(AccountsViewModel(service: service))
         } catch {
             return .failed(error)
         }
+    }
+
+    /// The Google OAuth client id from `Config/GoogleOAuth.xcconfig`, or `nil` when none is set.
+    private static func googleClientID() -> String? {
+        let value = Bundle.main.object(forInfoDictionaryKey: "ClientMailGoogleClientID") as? String
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

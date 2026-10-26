@@ -39,6 +39,21 @@ struct KeychainSecretStoreTests {
         #expect(keychain.lastQuery(of: .delete) == expectedQuery)
     }
 
+    @Test func readsNeverShowAPromptAndWritesAndDeletesKeepTheDefault() throws {
+        let keychain = FakeKeychain()
+        let store = KeychainSecretStore(client: keychain)
+
+        try store.write(label: label, secret: "old")
+        try store.write(label: label, secret: "new")
+        _ = try store.read(label: label)
+        _ = try store.delete(label: label)
+
+        #expect(keychain.interactionNotAllowed(in: .copy) == true)
+        #expect(keychain.interactionNotAllowed(in: .add) == nil)
+        #expect(keychain.interactionNotAllowed(in: .update) == nil)
+        #expect(keychain.interactionNotAllowed(in: .delete) == nil)
+    }
+
     @Test func writingAgainUpdatesTheExistingItem() throws {
         let keychain = FakeKeychain()
         let store = KeychainSecretStore(client: keychain)
