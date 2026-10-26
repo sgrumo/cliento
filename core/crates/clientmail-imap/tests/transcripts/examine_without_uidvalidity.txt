@@ -1,0 +1,7 @@
+# A folder whose EXAMINE carries no UIDVALIDITY: its UIDs could not be trusted. Written by hand.
+S: * OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=XOAUTH2] ready
+C: A0001 AUTHENTICATE XOAUTH2 <xoauth2>
+S: A0001 OK Logged in
+C: A0002 EXAMINE INBOX
+S: * 3 EXISTS
+S: A0002 OK [READ-ONLY] done

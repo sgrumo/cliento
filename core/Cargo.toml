@@ -6,9 +6,12 @@ members = [
     "crates/clientmail-engine",
     "crates/clientmail-oauth",
     "crates/clientmail-imap",
+    "crates/clientmail-mime",
     "crates/clientmail-ffi",
     "tools/uniffi-bindgen",
 ]
+# Patched third-party crates (vendor/VENDOR.md): not ours to lint, format or test.
+exclude = ["vendor"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,13 +23,21 @@ publish = false
 [workspace.dependencies]
 clientmail-domain = { path = "crates/clientmail-domain" }
 clientmail-engine = { path = "crates/clientmail-engine" }
+clientmail-mime = { path = "crates/clientmail-mime" }
 clientmail-oauth = { path = "crates/clientmail-oauth" }
 clientmail-store = { path = "crates/clientmail-store" }
 base64 = "0.23.1"
+# Dates for IMAP `SEARCH` and `INTERNALDATE`; already in the build through `imap-types`.
+chrono = { version = "0.4.45", default-features = false }
 email_address = "0.2.9"
 getrandom = "0.4.3"
-imap-next = { version = "0.3.4", default-features = false }
+# Pinned: patched copies under vendor/ (VENDOR.md). Change only together with the copies.
+imap-codec = "=2.0.0-alpha.9"
+imap-types = "=2.0.0-alpha.7"
+imap-next = { version = "0.3.4", default-features = false, features = ["ext_condstore_qresync"] }
 # imap-codec 2.0.0-alpha.9 (through imap-next) uses nom's `alloc` without asking for it.
+# `full_encoding` decodes legacy charsets beyond UTF-8 and Latin-1 (Shift_JIS, GBK, KOI8-R...).
+mail-parser = { version = "1.0.0", default-features = false, features = ["full_encoding"] }
 nom = { version = "7.1.3", default-features = false, features = ["alloc"] }
 pollster = "1.0.1"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "form", "system-proxy"] }
@@ -92,3 +103,8 @@ redundant_pub_crate = "allow"
 codegen-units = 1
 lto = "thin"
 strip = "debuginfo"
+
+# Gmail's fetch items, not yet upstream (vendor/VENDOR.md, decision record 0012).
+[patch.crates-io]
+imap-codec = { path = "vendor/imap-codec" }
+imap-types = { path = "vendor/imap-types" }

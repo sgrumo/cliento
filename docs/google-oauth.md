@@ -40,8 +40,9 @@ Without it the app builds, and the Google sign-in button is hidden.
 
 ## 5. A test access token for `make imap-smoke`
 
-`make imap-smoke` signs in to Gmail's IMAP server with a short-lived access token and lists your
-folders, printing only how many folders have each role. Until the app's sync (step 1.8) can hand
+`make imap-smoke` signs in to Gmail's IMAP server with a short-lived access token, lists your
+folders and fetches the newest 10 headers of the last 30 days from All Mail, printing only counts
+(folders per role, headers fetched and labelled). Until the app's sync (step 1.8) can hand
 out a token, take one from Google's OAuth 2.0 Playground:
 
 1. Open the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/).

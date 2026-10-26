@@ -1,7 +1,10 @@
 use std::fmt;
 
 use crate::redact::Redacted;
-use crate::{MailboxPath, MailboxRole};
+use crate::{
+    GmailMessageId, GmailThreadId, ImapUid, MailboxPath, MailboxRole, MessageFlags, MessageHeader,
+    ModSeq, UidValidity,
+};
 
 /// Where an IMAP server listens. Only implicit TLS (the connection starts encrypted) is supported.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,6 +170,240 @@ impl MailboxListing {
     }
 }
 
+/// A folder opened for reading: where sync stands in it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SelectedMailbox {
+    uid_validity: UidValidity,
+    uid_next: Option<ImapUid>,
+    highest_modseq: Option<ModSeq>,
+    exists: u32,
+}
+
+impl SelectedMailbox {
+    /// Creates the state of an opened folder.
+    ///
+    /// # Arguments
+    ///
+    /// * `uid_validity` - The folder's `UIDVALIDITY`; a new value invalidates every stored `UID`.
+    /// * `uid_next` - The `UID` the next message will get, when the server said.
+    /// * `highest_modseq` - The `HIGHESTMODSEQ`, when the server supports `CONDSTORE`.
+    /// * `exists` - How many messages the folder holds.
+    #[must_use]
+    pub const fn new(
+        uid_validity: UidValidity,
+        uid_next: Option<ImapUid>,
+        highest_modseq: Option<ModSeq>,
+        exists: u32,
+    ) -> Self {
+        Self {
+            uid_validity,
+            uid_next,
+            highest_modseq,
+            exists,
+        }
+    }
+
+    /// Returns the folder's `UIDVALIDITY`.
+    #[must_use]
+    pub const fn uid_validity(&self) -> UidValidity {
+        self.uid_validity
+    }
+
+    /// Returns the next `UID`, if known.
+    #[must_use]
+    pub const fn uid_next(&self) -> Option<ImapUid> {
+        self.uid_next
+    }
+
+    /// Returns the `HIGHESTMODSEQ`, if known.
+    #[must_use]
+    pub const fn highest_modseq(&self) -> Option<ModSeq> {
+        self.highest_modseq
+    }
+
+    /// Returns how many messages the folder holds.
+    #[must_use]
+    pub const fn exists(&self) -> u32 {
+        self.exists
+    }
+}
+
+/// A label Gmail defines itself, written like a flag in `X-GM-LABELS` (`\Inbox`).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SystemLabel {
+    /// `\Inbox`.
+    Inbox,
+    /// `\Sent`.
+    Sent,
+    /// `\Draft`.
+    Draft,
+    /// `\Important`.
+    Important,
+    /// `\Starred`.
+    Starred,
+    /// `\Trash`.
+    Trash,
+    /// `\Spam`.
+    Spam,
+    /// Any other system label, by its name without the backslash. Not personal: Gmail defines
+    /// these names.
+    Other(String),
+}
+
+/// One label of a Gmail message.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GmailLabel {
+    /// A label Gmail defines.
+    System(SystemLabel),
+    /// A user label, as the server named it: matched against the folder list by its raw name.
+    Name(RemoteName),
+}
+
+/// What Gmail adds to a message: its ids and labels.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GmailItems {
+    message_id: GmailMessageId,
+    thread_id: GmailThreadId,
+    labels: Vec<GmailLabel>,
+}
+
+impl GmailItems {
+    /// Creates Gmail's items of a message.
+    ///
+    /// # Arguments
+    ///
+    /// * `message_id` - `X-GM-MSGID`.
+    /// * `thread_id` - `X-GM-THRID`.
+    /// * `labels` - `X-GM-LABELS`, in the server's order.
+    #[must_use]
+    pub const fn new(
+        message_id: GmailMessageId,
+        thread_id: GmailThreadId,
+        labels: Vec<GmailLabel>,
+    ) -> Self {
+        Self {
+            message_id,
+            thread_id,
+            labels,
+        }
+    }
+
+    /// Returns the message id.
+    #[must_use]
+    pub const fn message_id(&self) -> GmailMessageId {
+        self.message_id
+    }
+
+    /// Returns the thread id.
+    #[must_use]
+    pub const fn thread_id(&self) -> GmailThreadId {
+        self.thread_id
+    }
+
+    /// Returns the labels.
+    #[must_use]
+    pub fn labels(&self) -> &[GmailLabel] {
+        &self.labels
+    }
+}
+
+/// One message's header as fetched from an opened folder. `Debug` hides personal data.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteHeader {
+    uid: ImapUid,
+    flags: MessageFlags,
+    header: MessageHeader,
+    gmail: Option<GmailItems>,
+}
+
+impl RemoteHeader {
+    /// Creates a fetched header.
+    ///
+    /// # Arguments
+    ///
+    /// * `uid` - The message's `UID` in the opened folder (on Gmail, `[Gmail]/All Mail`).
+    /// * `flags` - Its flags and keywords.
+    /// * `header` - Its parsed header, arrival time and size.
+    /// * `gmail` - Gmail's ids and labels, on Gmail.
+    #[must_use]
+    pub const fn new(
+        uid: ImapUid,
+        flags: MessageFlags,
+        header: MessageHeader,
+        gmail: Option<GmailItems>,
+    ) -> Self {
+        Self {
+            uid,
+            flags,
+            header,
+            gmail,
+        }
+    }
+
+    /// Returns the `UID`.
+    #[must_use]
+    pub const fn uid(&self) -> ImapUid {
+        self.uid
+    }
+
+    /// Returns the flags.
+    #[must_use]
+    pub const fn flags(&self) -> &MessageFlags {
+        &self.flags
+    }
+
+    /// Returns the header.
+    #[must_use]
+    pub const fn header(&self) -> &MessageHeader {
+        &self.header
+    }
+
+    /// Returns Gmail's items, on Gmail.
+    #[must_use]
+    pub const fn gmail(&self) -> Option<&GmailItems> {
+        self.gmail.as_ref()
+    }
+}
+
+/// The headers of one fetch, and how many messages could not be read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HeaderBatch {
+    headers: Vec<RemoteHeader>,
+    skipped: usize,
+}
+
+impl HeaderBatch {
+    /// Creates a batch.
+    ///
+    /// # Arguments
+    ///
+    /// * `headers` - The messages read, in the server's order.
+    /// * `skipped` - Messages left out: a response that could not be parsed, or one without the
+    ///   items asked for. Sync carries on without them.
+    #[must_use]
+    pub const fn new(headers: Vec<RemoteHeader>, skipped: usize) -> Self {
+        Self { headers, skipped }
+    }
+
+    /// Returns the messages read.
+    #[must_use]
+    pub fn headers(&self) -> &[RemoteHeader] {
+        &self.headers
+    }
+
+    /// Takes the messages read.
+    #[must_use]
+    pub fn into_headers(self) -> Vec<RemoteHeader> {
+        self.headers
+    }
+
+    /// Returns how many messages were left out.
+    #[must_use]
+    pub const fn skipped(&self) -> usize {
+        self.skipped
+    }
+}
+
 /// How talking to a mail server failed, as far as the engine's rules care.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MailErrorKind {
@@ -211,5 +448,25 @@ mod tests {
 
         assert!(!output.contains("Secret"), "leaked: {output}");
         assert!(output.contains("skipped: 1"), "count shown: {output}");
+    }
+
+    #[test]
+    fn debug_output_hides_label_names() {
+        let items = GmailItems::new(
+            GmailMessageId::new(1),
+            GmailThreadId::new(2),
+            vec![
+                GmailLabel::System(SystemLabel::Inbox),
+                GmailLabel::Name(RemoteName::new(b"Clients/Secret".to_vec())),
+            ],
+        );
+
+        let output = format!("{items:?}");
+
+        assert!(!output.contains("Secret"), "leaked: {output}");
+        assert!(
+            output.contains("Inbox"),
+            "system labels are not personal: {output}"
+        );
     }
 }

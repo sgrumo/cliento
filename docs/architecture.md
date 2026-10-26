@@ -24,10 +24,14 @@
 │ clientmail-store      SQLite: schema, migrations, queries     │
 │ clientmail-oauth      Google OAuth: PKCE, token exchange      │
 │ clientmail-imap       IMAP via imap-next: TLS, XOAUTH2 (0011) │
+│ clientmail-mime       RFC 5322 headers (mail-parser)          │
 │ clientmail-<proto>    IMAP / Gmail / Graph / SMTP adapters     │
 │ clientmail-domain     types, validation, port traits          │
 └───────────────────────────────────────────────────────────────┘
 ```
+
+`core/vendor/` holds patched copies of third-party crates (Gmail's fetch items in `imap-codec`,
+decision record 0012), outside the workspace.
 
 Dependencies point down. `clientmail-domain` depends on nothing in the repo. The engine knows only
 the port traits; storage and protocol crates implement them. The FFI crate is the only place that

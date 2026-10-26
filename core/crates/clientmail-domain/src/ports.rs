@@ -7,9 +7,10 @@ use std::error::Error;
 use secrecy::SecretString;
 
 use crate::{
-    Account, AccountId, AuthorizationCode, AuthorizationRequest, BlobId, EmailAddress, ImapServer,
-    MailErrorKind, Mailbox, MailboxId, MailboxListing, MailboxSyncState, Message, MessageId,
-    OAuthErrorKind, OAuthState, PkceVerifier, SecretKey, SecretKind, TokenGrant, UnixTime,
+    Account, AccountId, AuthorizationCode, AuthorizationRequest, BlobId, EmailAddress, HeaderBatch,
+    ImapServer, ImapUid, MailErrorKind, Mailbox, MailboxId, MailboxListing, MailboxSyncState,
+    Message, MessageId, OAuthErrorKind, OAuthState, PkceVerifier, RemoteName, SecretKey,
+    SecretKind, SelectedMailbox, TokenGrant, UnixTime,
 };
 
 /// Persists accounts.
@@ -493,6 +494,60 @@ pub trait MailSession: Send {
     fn list_mailboxes(
         &mut self,
     ) -> impl Future<Output = Result<MailboxListing, Self::Error>> + Send;
+
+    /// Returns whether the server speaks Gmail's IMAP extensions (`X-GM-EXT-1`): message and
+    /// thread ids and labels.
+    fn has_gmail_extensions(&self) -> bool;
+
+    /// Opens a folder read-only (`EXAMINE`), so reading never marks mail as read.
+    ///
+    /// # Arguments
+    ///
+    /// * `mailbox` - The folder's name as the server listed it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error when the folder cannot be opened or its `UIDVALIDITY` is
+    /// missing.
+    fn examine(
+        &mut self,
+        mailbox: &RemoteName,
+    ) -> impl Future<Output = Result<SelectedMailbox, Self::Error>> + Send;
+
+    /// Returns the `UID`s of the opened folder's messages that arrived at or after `since`, in
+    /// ascending order.
+    ///
+    /// # Arguments
+    ///
+    /// * `since` - The earliest arrival time wanted. IMAP searches whole days in the server's
+    ///   time zone, so messages from up to two days earlier can come back too; none after `since`
+    ///   is missed.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error when the search fails or no folder is open.
+    fn search_since(
+        &mut self,
+        since: UnixTime,
+    ) -> impl Future<Output = Result<Vec<ImapUid>, Self::Error>> + Send;
+
+    /// Fetches the headers, flags, arrival time and size of messages in the opened folder, and on
+    /// Gmail their ids and labels.
+    ///
+    /// # Arguments
+    ///
+    /// * `uids` - The messages to fetch, sent as one command. Keep it to a few hundred and page
+    ///   from the newest, so the first page shows quickly and a failure loses one page only.
+    ///
+    /// # Errors
+    ///
+    /// Returns the protocol error when the fetch fails. A `UID` asked for that does not come back
+    /// complete (unknown, expunged, unreadable) is counted in [`HeaderBatch::skipped`], not an
+    /// error.
+    fn fetch_headers(
+        &mut self,
+        uids: &[ImapUid],
+    ) -> impl Future<Output = Result<HeaderBatch, Self::Error>> + Send;
 
     /// Ends the session politely.
     ///

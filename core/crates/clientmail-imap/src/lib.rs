@@ -5,6 +5,7 @@
 //! details only. Errors carry fixed messages, never server text, tokens or addresses.
 
 mod error;
+mod fetch;
 mod roles;
 mod session;
 mod tls;

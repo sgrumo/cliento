@@ -1,0 +1,45 @@
+# Gmail: sign in, examine All Mail, search the last days and fetch headers with Gmail's ids
+# and labels (https://developers.google.com/gmail/imap/imap-extensions). Labels come as a
+# system label, an atom, a quoted string with escapes and a literal. Message 2's items come in
+# two responses and are merged; message 4's flag change was not asked for and is ignored. One
+# response line cannot be parsed and one message lacks its Gmail ids: both are skipped and
+# counted. Written by hand.
+S: * OK Gimap ready for requests from 192.0.2.1 a1b2c3
+C: A0001 CAPABILITY
+S: * CAPABILITY IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA ID XLIST CHILDREN X-GM-EXT-1 XYZZY SASL-IR AUTH=XOAUTH2 AUTH=PLAIN AUTH=PLAIN-CLIENTTOKEN AUTH=OAUTHBEARER
+S: A0001 OK Thats all she wrote! a1b2c3
+C: A0002 AUTHENTICATE XOAUTH2 <xoauth2>
+S: * CAPABILITY IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA ID XLIST CHILDREN X-GM-EXT-1 UIDPLUS COMPRESS=DEFLATE ENABLE MOVE CONDSTORE ESEARCH UTF8=ACCEPT LIST-EXTENDED LIST-STATUS LITERAL- SPECIAL-USE APPENDLIMIT=35651584
+S: A0002 OK ada@gmail.com authenticated (Success)
+C: A0003 EXAMINE "[Gmail]/All Mail"
+S: * FLAGS (\Answered \Flagged \Draft \Deleted \Seen $Forwarded $NotPhishing $Phishing)
+S: * OK [PERMANENTFLAGS ()] Flags permitted.
+S: * OK [UIDVALIDITY 11] UIDs valid.
+S: * 1234 EXISTS
+S: * 0 RECENT
+S: * OK [UIDNEXT 98765] Predicted next UID.
+S: * OK [HIGHESTMODSEQ 5550000]
+S: A0003 OK [READ-ONLY] [Gmail]/All Mail selected. (Success)
+C: A0004 UID SEARCH SINCE "25-Sep-2026"
+S: * SEARCH 105 101 102 103
+S: A0004 OK SEARCH completed (Success)
+C: A0005 UID FETCH 101:103,105 (UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (DATE FROM TO CC BCC REPLY-TO SUBJECT MESSAGE-ID IN-REPLY-TO REFERENCES LIST-ID LIST-UNSUBSCRIBE)] X-GM-MSGID X-GM-THRID X-GM-LABELS)
+S: * 1 FETCH (X-GM-THRID 1278455344230334865 X-GM-MSGID 1278455344230334865 X-GM-LABELS (\Inbox \Important Work) UID 101 FLAGS (\Seen) INTERNALDATE "26-Oct-2026 09:15:00 +0000" RFC822.SIZE 2048 BODY[HEADER.FIELDS (DATE FROM TO CC BCC REPLY-TO SUBJECT MESSAGE-ID IN-REPLY-TO REFERENCES LIST-ID LIST-UNSUBSCRIBE)] {107}
+S: From: Ada <ada@example.com>
+S: To: ada@gmail.com
+S: Subject: Engine notes
+S: Message-ID: <id-101@example.com>
+S:
+S: )
+S: * 2 FETCH (UID 102 FLAGS () INTERNALDATE "26-Oct-2026 10:00:00 +0200" RFC822.SIZE 900 BODY[HEADER.FIELDS (DATE FROM TO CC BCC REPLY-TO SUBJECT MESSAGE-ID IN-REPLY-TO REFERENCES LIST-ID LIST-UNSUBSCRIBE)] {2}
+S:
+S: )
+S: * 4 FETCH (UID 104 FLAGS (\Seen))
+S: * 2 FETCH (UID 102 X-GM-MSGID 1278455344230334866 X-GM-THRID 1278455344230334865 X-GM-LABELS ("Clients/\"Acme\"" {13}
+S: Receipts 2026))
+S: * 3 FETCH (UID 103 THIS-IS-NOT-AN-ITEM 1)
+S: * 5 FETCH (UID 105 FLAGS () INTERNALDATE "26-Oct-2026 11:00:00 +0000" RFC822.SIZE 10 BODY[HEADER.FIELDS (DATE FROM TO CC BCC REPLY-TO SUBJECT MESSAGE-ID IN-REPLY-TO REFERENCES LIST-ID LIST-UNSUBSCRIBE)] {25}
+S: Subject: no Gmail ids
+S:
+S: )
+S: A0005 OK Success

@@ -62,6 +62,8 @@ impl Script {
                 lines.push(Line::Client(client.to_owned()));
             } else if line == "C:" {
                 lines.push(Line::Client(String::new()));
+            } else if line == "S:" {
+                lines.push(Line::Server(String::new()));
             } else if line == "CLOSE" {
                 end = End::Close;
             } else if line == "HOLD" {

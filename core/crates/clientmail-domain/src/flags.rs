@@ -130,9 +130,55 @@ impl MessageFlags {
     }
 }
 
+/// Builds flags from the server's system flags, for example `flags.iter().copied().collect()`.
+impl FromIterator<Flag> for MessageFlags {
+    fn from_iter<I: IntoIterator<Item = Flag>>(flags: I) -> Self {
+        let mut collected = Self::default();
+        collected.extend(flags);
+        collected
+    }
+}
+
+impl Extend<Flag> for MessageFlags {
+    fn extend<I: IntoIterator<Item = Flag>>(&mut self, flags: I) {
+        for flag in flags {
+            self.insert(flag);
+        }
+    }
+}
+
+impl Extend<Keyword> for MessageFlags {
+    fn extend<I: IntoIterator<Item = Keyword>>(&mut self, keywords: I) {
+        self.keywords.extend(keywords);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flags_collect_and_extend_from_server_values() {
+        let mut flags: MessageFlags = [Flag::Seen, Flag::Flagged, Flag::Seen]
+            .into_iter()
+            .collect();
+
+        flags.extend([
+            Keyword::parse("$Junk").unwrap(),
+            Keyword::parse("Work").unwrap(),
+        ]);
+
+        assert!(
+            flags.contains(Flag::Seen) && flags.contains(Flag::Flagged),
+            "flags"
+        );
+        assert!(!flags.contains(Flag::Answered), "nothing else");
+        assert_eq!(
+            flags.keywords().map(Keyword::as_str).collect::<Vec<_>>(),
+            ["$Junk", "Work"],
+            "keywords sorted"
+        );
+    }
 
     #[test]
     fn flags_can_be_set_and_cleared_independently() {

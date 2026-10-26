@@ -20,12 +20,23 @@ workspace uses. The root `AGENTS.md` still applies.
 | `clientmail-store` | SQLite persistence behind the domain ports | `clientmail-domain` |
 | `clientmail-engine` | Use cases. Talks to the outside only through ports. | `clientmail-domain` |
 | `clientmail-oauth` | OAuth protocols (Google): PKCE, URLs, token endpoint over HTTPS. Implements `OAuthClient` | `clientmail-domain` |
-| `clientmail-imap` | IMAP over TLS: XOAUTH2, folders. Implements `MailConnector` | `clientmail-domain` |
+| `clientmail-imap` | IMAP over TLS: XOAUTH2, folders, header fetch with Gmail's items. Implements `MailConnector` | `clientmail-domain`, `clientmail-mime` |
+| `clientmail-mime` | RFC 5322 parsing (headers now, bodies in 2.1). No rules, no port | `clientmail-domain` |
 | `clientmail-ffi` | UniFFI API for Swift. Composition root. | all of the above |
 | `tools/uniffi-bindgen` | CLI that generates the Swift bindings | `uniffi` |
 
 Future crates follow the same shape: protocol crates (IMAP, Gmail, Microsoft Graph, SMTP),
 `clientmail-sync`, `clientmail-search`. Each implements ports from `clientmail-domain`.
+
+## Vendored crates
+
+`vendor/` holds patched copies of third-party crates, wired through `[patch.crates-io]` and
+excluded from the workspace (decision record 0012, `vendor/VENDOR.md`).
+
+- Change them only to add what the reason in `VENDOR.md` names, and mark every change with a
+  `// clientmail:` comment.
+- Test a patch from one of our crates, through the crate's public API.
+- Never format, lint or refactor vendored code.
 
 ## Style
 

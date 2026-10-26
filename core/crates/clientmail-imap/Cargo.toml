@@ -9,7 +9,9 @@ publish.workspace = true
 
 [dependencies]
 base64.workspace = true
+chrono.workspace = true
 clientmail-domain.workspace = true
+clientmail-mime.workspace = true
 imap-next.workspace = true
 nom.workspace = true
 rustls.workspace = true
@@ -19,6 +21,9 @@ tokio = { workspace = true, features = ["net", "time", "io-util"] }
 tokio-rustls.workspace = true
 
 [dev-dependencies]
+# Pin the patched copies (vendor/VENDOR.md) and test the Gmail patch through their public codecs.
+imap-codec.workspace = true
+imap-types.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
 
 [lints]

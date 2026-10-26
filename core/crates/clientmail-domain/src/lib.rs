@@ -28,7 +28,10 @@ pub use address::EmailAddress;
 pub use blob::BlobId;
 pub use error::DomainError;
 pub use flags::{Flag, Keyword, MessageFlags};
-pub use imap::{ImapServer, MailErrorKind, MailboxListing, RemoteMailbox, RemoteName};
+pub use imap::{
+    GmailItems, GmailLabel, HeaderBatch, ImapServer, MailErrorKind, MailboxListing, RemoteHeader,
+    RemoteMailbox, RemoteName, SelectedMailbox, SystemLabel,
+};
 pub use mailbox::{Mailbox, MailboxId, MailboxPath, MailboxRole};
 pub use message::{
     GmailMessageId, GmailThreadId, HeaderFields, HeaderMessageId, ImapUid, Message, MessageHeader,

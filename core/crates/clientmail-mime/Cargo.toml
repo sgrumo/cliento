@@ -1,0 +1,15 @@
+[package]
+name = "clientmail-mime"
+description = "RFC 5322 message parsing for the ClientMail core."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+clientmail-domain.workspace = true
+mail-parser.workspace = true
+
+[lints]
+workspace = true
