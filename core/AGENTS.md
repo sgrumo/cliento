@@ -68,6 +68,8 @@ Future crates follow the same shape: protocol crates (IMAP, Gmail, Microsoft Gra
 ## Concurrency
 
 - `tokio` for async I/O, `rayon` for CPU-bound parallel work.
+- Never block a Tokio worker. In `clientmail-ffi`, SQLite calls and platform callbacks run through
+  `CoreRuntime::blocking` (decision record 0008).
 - Types shared across threads state their `Send` and `Sync` bounds.
 - SQLite connections are not `Sync`: wrap them in a `Mutex` and keep the lock short.
 - Prefer channels to shared mutable state.

@@ -20,11 +20,13 @@ clientmail-domain = { path = "crates/clientmail-domain" }
 clientmail-engine = { path = "crates/clientmail-engine" }
 clientmail-store = { path = "crates/clientmail-store" }
 email_address = "0.2.9"
+pollster = "1.0.1"
 rusqlite = { version = "0.41.0", features = ["bundled"] }
 secrecy = "0.10.3"
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
+tokio = { version = "1.54.1", default-features = false }
 uniffi = "0.32.2"
 uuid = { version = "1.29.0", features = ["v7"] }
 

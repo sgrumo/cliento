@@ -42,8 +42,10 @@ apps/macos/
   `@Environment`. Mark every `@Observable` class `@MainActor`.
 - Do not use `ObservableObject`, `@Published`, `@StateObject`, `@ObservedObject` or
   `@EnvironmentObject`.
-- Work that blocks (Rust calls, disk) runs off the main actor, for example in a `@concurrent`
-  function.
+- Rust calls are `async`: await them; they run on the core's own threads. Other work that blocks
+  (disk, the synchronous `CoreClient` constructors) runs off the main actor, for example in a
+  `@concurrent` function. One exception: `Startup` opens the database on the main actor at launch,
+  until the window shell (1.10) moves it behind a loading state.
 - No Grand Central Dispatch. Use Swift concurrency.
 - Prefer Swift-native and modern Foundation APIs (`replacing(_:with:)`, `URL.applicationSupportDirectory`,
   `appending(path:)`).

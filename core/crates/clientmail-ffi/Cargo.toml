@@ -17,9 +17,11 @@ clientmail-domain.workspace = true
 clientmail-engine.workspace = true
 clientmail-store.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 uniffi.workspace = true
 
 [dev-dependencies]
+pollster.workspace = true
 tempfile.workspace = true
 
 [lints]

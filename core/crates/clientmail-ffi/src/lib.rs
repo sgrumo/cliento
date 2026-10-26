@@ -13,6 +13,7 @@
 mod client;
 mod error;
 mod records;
+mod runtime;
 mod secrets;
 
 pub use client::CoreClient;

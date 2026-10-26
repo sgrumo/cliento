@@ -92,6 +92,29 @@ struct RustAccountServiceTests {
         #expect(remaining == [added])
     }
 
+    /// Proves the engine holds no store lock across a Keychain call. It does not prove that Keychain
+    /// calls stay off Tokio workers; the core's runtime tests cover that.
+    @Test(.timeLimit(.minutes(1)))
+    func aHeldKeychainCallDoesNotLockTheStore() async throws {
+        let gate = GatedSecretStore()
+        let service = try RustAccountService.inMemory(secrets: gate)
+        let added = try await service.addAccount(address: "ada@example.com", displayName: nil)
+
+        let removal = Task { try await service.removeAccount(id: added.id) }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !gate.hasEntered, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        try #require(gate.hasEntered, "removeAccount never reached the Keychain delete")
+        let listedWhileHeld = try await service.accounts()
+        gate.open()
+        try await removal.value
+        let afterRemoval = try await service.accounts()
+
+        #expect(listedWhileHeld == [added])
+        #expect(afterRemoval.isEmpty)
+    }
+
     @Test func undeclaredSwiftErrorsAreSecretStorageFailures() async throws {
         let service = try RustAccountService.inMemory(
             secrets: FailingSecretStore(throwing: UndeclaredError())

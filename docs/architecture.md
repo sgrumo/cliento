@@ -50,8 +50,8 @@ keychain.
 
 ## Data flow
 
-**Commands** go down: a view model calls a `MailDomain` protocol, `CoreAdapter` calls the
-generated Swift, which calls the Rust `CoreClient`, which runs an engine use case.
+**Commands** go down: a view model calls a `MailDomain` protocol, `CoreAdapter` awaits the
+generated Swift, which calls the Rust `CoreClient`, which runs an engine use case on its runtime.
 
 **Changes** come up. Today the view model refreshes itself after each call. From milestone 2,
 the core pushes change events through a UniFFI callback interface, so sync results reach the UI
@@ -59,11 +59,19 @@ without polling.
 
 ## Threading
 
-- Rust calls block. `CoreAdapter` methods are `@concurrent`, so they never run on the main actor.
+- The Rust API is `async`; `CoreAdapter` awaits it. Swift's executor polls each call's Rust
+  future, which only converts arguments and hands the work to the core's threads; no Swift thread
+  waits while that work runs. UniFFI's Swift bindings do not support cancellation: a cancelled task
+  keeps waiting for the call to finish. Opening the database is the exception to all this:
+  `CoreClient::open` is synchronous and runs at launch on the main actor.
+- Each `CoreClient` owns one multi-thread Tokio runtime (`CoreRuntime` in `clientmail-ffi`,
+  decision record 0008): two workers for async network work, at most eight blocking threads, all
+  named `clientmail-core`.
+- Nothing blocks a Tokio worker. SQLite calls and platform callbacks (the Keychain) run on the
+  runtime's blocking pool, so platform callbacks stay synchronous.
 - View models are `@MainActor`.
 - The store serialises access to one SQLite connection with a `Mutex`. When sync arrives, the
   store gets a pool: one writer, several readers (SQLite WAL mode is already on).
-- Network work runs on a Tokio runtime owned by `clientmail-ffi`.
 
 ## Storage
 

@@ -4,8 +4,8 @@ import MailDomain
 
 /// Implements ``AccountService`` with the Rust core.
 ///
-/// Every call blocks on disk I/O, so each method is `@concurrent`: it always runs on the global
-/// concurrent executor, never on the caller's actor.
+/// The initialisers block on disk I/O. The methods await the core, which runs the work on its own
+/// threads, so they never block the caller.
 public final class RustAccountService: AccountService {
     private let client: CoreClient
 
@@ -43,23 +43,20 @@ public final class RustAccountService: AccountService {
         RustAccountService(client: try CoreCall.run { try CoreClient.openInMemory(secrets: secrets) })
     }
 
-    @concurrent
     public func accounts() async throws(AccountServiceError) -> [Account] {
-        try CoreCall.run { try client.accounts() }.map(Account.init(record:))
+        try await CoreCall.run { try await client.accounts() }.map(Account.init(record:))
     }
 
-    @concurrent
     public func addAccount(address: String, displayName: String?) async throws(AccountServiceError)
         -> Account
     {
-        let record = try CoreCall.run {
-            try client.addAccount(address: address, displayName: displayName)
+        let record = try await CoreCall.run {
+            try await client.addAccount(address: address, displayName: displayName)
         }
         return Account(record: record)
     }
 
-    @concurrent
     public func removeAccount(id: Account.ID) async throws(AccountServiceError) {
-        try CoreCall.run { try client.removeAccount(id: id) }
+        try await CoreCall.run { try await client.removeAccount(id: id) }
     }
 }

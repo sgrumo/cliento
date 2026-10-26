@@ -29,6 +29,10 @@ pub enum CoreError {
     /// The platform's secret storage (the Keychain on macOS) failed. Retrying will not help.
     #[error("secret storage failed")]
     SecretStorage,
+    /// The core could not set up its runtime. A thread the operating system refuses to start
+    /// panics instead, inside Tokio.
+    #[error("the core could not start")]
+    Runtime,
 }
 
 impl From<DomainError> for CoreError {
