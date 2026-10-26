@@ -32,7 +32,8 @@ impl From<DomainError> for CoreError {
             DomainError::InvalidMailboxId
             | DomainError::InvalidMessageId
             | DomainError::InvalidMailboxPath { .. }
-            | DomainError::InvalidKeyword => Self::Storage,
+            | DomainError::InvalidKeyword
+            | DomainError::InvalidBlobId => Self::Storage,
         }
     }
 }
@@ -84,6 +85,7 @@ mod tests {
             DomainError::InvalidMessageId,
             DomainError::InvalidMailboxPath { reason: "test" },
             DomainError::InvalidKeyword,
+            DomainError::InvalidBlobId,
         ] {
             assert_eq!(
                 CoreError::from(error.clone()),

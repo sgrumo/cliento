@@ -31,4 +31,7 @@ pub enum DomainError {
     /// The text is not a valid IMAP keyword.
     #[error("invalid keyword")]
     InvalidKeyword,
+    /// The text is not 64 hex characters naming a blob.
+    #[error("invalid blob id")]
+    InvalidBlobId,
 }

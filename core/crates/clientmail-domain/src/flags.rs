@@ -21,6 +21,16 @@ pub enum Flag {
 }
 
 impl Flag {
+    /// Every flag, for code that must handle each one (for example, storage encodings).
+    pub const ALL: [Self; 6] = [
+        Self::Seen,
+        Self::Flagged,
+        Self::Answered,
+        Self::Draft,
+        Self::Forwarded,
+        Self::Deleted,
+    ];
+
     /// Returns the bit that stores this flag inside [`MessageFlags`].
     const fn bit(self) -> u8 {
         match self {
@@ -139,20 +149,11 @@ mod tests {
 
     #[test]
     fn every_flag_has_its_own_bit() {
-        let all = [
-            Flag::Seen,
-            Flag::Flagged,
-            Flag::Answered,
-            Flag::Draft,
-            Flag::Forwarded,
-            Flag::Deleted,
-        ];
-
-        for flag in all {
+        for flag in Flag::ALL {
             let mut flags = MessageFlags::default();
             flags.insert(flag);
 
-            let set: Vec<Flag> = all
+            let set: Vec<Flag> = Flag::ALL
                 .into_iter()
                 .filter(|other| flags.contains(*other))
                 .collect();

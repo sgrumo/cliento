@@ -53,9 +53,18 @@ without polling.
 
 - One SQLite database per installation, in the app's sandbox container under
   `Application Support/ClientMail/mail.sqlite`.
-- `STRICT` tables. Schema changes are append-only migrations tracked by `PRAGMA user_version`.
-- Message bodies and attachments live as files next to the database, addressed by content hash,
-  so the database stays small and fast.
+- `STRICT` tables. Schema changes are append-only migrations tracked by `PRAGMA user_version`,
+  kept as `.sql` files in `clientmail-store/migrations/` and embedded at compile time. Each
+  migration runs with foreign keys off and must pass `foreign_key_check`, so rebuilding a table
+  never cascades into its child rows.
+- Tables: `accounts`, `mailboxes` (with each mailbox's sync position), `messages`, and child tables
+  for participants, references, keywords and Gmail labels. The layout and its trade-offs are in
+  decision record 0006.
+- Writes of many messages run in one transaction; the message list reads one page at a time with a
+  `(received_at, id)` cursor.
+- Message bodies and attachments live as files next to the database (`blobs/ab/cdef...`), named by
+  the SHA-256 of their content, written atomically and checked against their hash on read, so the
+  database stays small and fast.
 - Full-text search uses SQLite FTS5 over subject, participants and plain-text bodies.
 - Credentials and OAuth tokens live in the macOS Keychain, never in the database.
 
@@ -65,7 +74,8 @@ without polling.
   `MessageId`). They never change, so the store and the UI key on them.
 - Each message also keeps a `RemoteMessageRef` that says where it lives on the server:
   - plain IMAP: mailbox, `UIDVALIDITY` and `UID`. A new `UIDVALIDITY` invalidates every `UID` in
-    that mailbox, and the sync engine re-matches messages. This mailbox is the single source of
+    that mailbox, and the sync engine re-matches messages and upserts them with their old
+    ids and new keys (the store matches on id first). This mailbox is the single source of
     truth for where a plain IMAP message is;
   - Gmail: `X-GM-MSGID` (same in every label, so a message with several labels is stored once),
     `X-GM-THRID` (the conversation), and the `UIDVALIDITY` and `UID` in `[Gmail]/All Mail`, which

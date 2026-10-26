@@ -17,25 +17,34 @@ Status: `todo`, `planning`, `in progress`, `in review`, `done`.
 Findings from reviews that belong to a step not planned yet. Each step's plan must address the
 notes listed for it.
 
-| For step | Note | From |
-| --- | --- | --- |
-| 1.2 | Add a `Message` aggregate (id, account, `RemoteMessageRef`, header, flags) and a mailbox sync-state type (`UIDVALIDITY`, `UIDNEXT`, `HIGHESTMODSEQ`) to `clientmail-domain`, not to the store | 1.1 review P9 |
-| 1.2 | For plain IMAP, `RemoteMessageRef::Imap.mailbox` is the source of truth; the message-mailbox relation holds Gmail labels only | 1.1 review P9 |
-| 1.2 | Key mailboxes on `MailboxId`; `(account, path)` must not be their identity, so renames are not delete plus create | 1.1 review P10 |
-| 1.2 | Store `GmailMessageId` and `GmailThreadId` as the bits of a `u64` in an `INTEGER` column (`as i64` round trip), not by numeric value | 1.1 review P12 |
-| 1.6 | When `MailboxPath::new` rejects a server folder, skip that folder and keep syncing the rest | 1.1 review C6 |
-| 1.6 | Add a `CoreError` case for invalid server data, so it is not reported as a storage failure | 1.1 review C7 |
-| 1.7 | Fetch `Bcc` on sent mail, `List-Id` and `List-Unsubscribe` presence, `X-GM-THRID` and the All Mail `UID` | 1.1 review P1, P2, P6, P7 |
-| 1.7 | Add `MessageFlags` building from server flags (`FromIterator` or `extend`) when the adapter needs it | 1.1 review C10 |
-| 5.4 | Add `MessageFlags::remove_keyword` for snooze | 1.1 review C10 |
-| 6.5 | Graph folders have opaque ids and `displayName`s that may contain `/`; Outlook categories contain spaces and do not fit `Keyword` | 1.1 review P10 |
+Notes already resolved move to the "Resolved" column with the step that resolved them.
+
+| For step | Note | From | Resolved |
+| --- | --- | --- | --- |
+| 1.2 | Add a `Message` aggregate (id, account, `RemoteMessageRef`, header, flags) and a mailbox sync-state type (`UIDVALIDITY`, `UIDNEXT`, `HIGHESTMODSEQ`) to `clientmail-domain`, not to the store | 1.1 review P9 | 1.2 |
+| 1.2 | For plain IMAP, `RemoteMessageRef::Imap.mailbox` is the source of truth; the message-mailbox relation holds Gmail labels only | 1.1 review P9 | 1.2 |
+| 1.2 | Key mailboxes on `MailboxId`; `(account, path)` must not be their identity, so renames are not delete plus create | 1.1 review P10 | 1.2 |
+| 1.2 | Store `GmailMessageId` and `GmailThreadId` as the bits of a `u64` in an `INTEGER` column (`as i64` round trip), not by numeric value | 1.1 review P12 | 1.2 |
+| 1.6 | When `MailboxPath::new` rejects a server folder, skip that folder and keep syncing the rest | 1.1 review C6 | |
+| 1.6 | Add a `CoreError` case for invalid server data, so it is not reported as a storage failure | 1.1 review C7 | |
+| 1.7 | Fetch `Bcc` on sent mail, `List-Id` and `List-Unsubscribe` presence, `X-GM-THRID` and the All Mail `UID` | 1.1 review P1, P2, P6, P7 | |
+| 1.7 | Add `MessageFlags` building from server flags (`FromIterator` or `extend`) when the adapter needs it | 1.1 review C10 | |
+| 1.8 | Add the All Mail mailbox to every Gmail message's labels with `set_labels`, so the All Mail list is not empty (`X-GM-LABELS` never lists it) | 1.2 plan | |
+| 1.8 | After a `UIDVALIDITY` change, re-match messages (for example by `Message-ID`) and upsert them with their old `MessageId` and new key; drop the ones that cannot be matched. A moved IMAP message is upserted the same way | 1.2 plan, 1.2 review P1 | |
+| 1.8 | Add a connection pool (one writer, several readers) so a long sync write does not block list reads | 1.2 plan | |
+| 1.8 | Apply folder renames for an account in one transaction through temporary paths, so swaps and cycles do not hit `UNIQUE (account_id, path)`; add a batch mailbox method then | 1.2 review P7 | |
+| 1.8 | Save `set_sync_state` last, after messages and labels, so a crash in between makes the next sync fetch them again | 1.2 review P8 | |
+| 1.11 | Measure page loads: each page loads child rows with one query per table per message; batch them if the list lags | 1.2 implementation | |
+| 2.1 | Link body blobs to messages, and sweep blobs no message references plus leftover `.tmp` files in the blob folders | 1.2 plan, 1.2 review C5 | |
+| 5.4 | Add `MessageFlags::remove_keyword` for snooze | 1.1 review C10 | |
+| 6.5 | Graph folders have opaque ids and `displayName`s that may contain `/`; Outlook categories contain spaces and do not fit `Keyword` | 1.1 review P10 | |
 
 ## M1: Sign-in and first sync (Gmail)
 
 | Step | Goal | Depends on | Status |
 | --- | --- | --- | --- |
 | 1.1 | [Domain types for mailboxes and message headers](1.1-mail-domain-types.md) | 0.1 | done |
-| 1.2 | Store: mailboxes and messages tables, body file store | 1.1 | todo |
+| 1.2 | [Store: mailboxes and messages tables, body file store](1.2-store-mailboxes-messages.md) | 1.1 | done |
 | 1.3 | Secret storage: Keychain access and where it lives (Swift or Rust) | 0.1 | todo |
 | 1.4 | Google OAuth sign-in with PKCE, tokens saved and refreshed | 1.3 | todo |
 | 1.5 | Async core: Tokio runtime in the FFI crate, async UniFFI API | 0.1 | todo |

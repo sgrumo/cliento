@@ -4,7 +4,7 @@ use std::num::NonZeroU32;
 
 use crate::id::uuid_id;
 use crate::redact::{Redacted, redact_option};
-use crate::{DomainError, MailboxId, Participant, UnixTime};
+use crate::{AccountId, DomainError, MailboxId, MessageFlags, Participant, UnixTime};
 
 uuid_id!(
     /// Identifies a message on this Mac. Never changes, even when the server renumbers messages.
@@ -183,7 +183,9 @@ impl fmt::Debug for HeaderMessageId {
 /// Returns every message id in a header value: the `<...>` tokens when there are any, otherwise
 /// the whitespace-separated words that contain `@`.
 ///
-/// The returned slices borrow from `raw`, so nothing is copied until a caller keeps an id.
+/// No returned id contains `<` or `>`, so wrapping a stored id in brackets and parsing it again
+/// gives the same id. The returned slices borrow from `raw`, so nothing is copied until a caller
+/// keeps an id.
 fn message_id_tokens(raw: &str) -> Vec<&str> {
     let bracketed: Vec<&str> = raw
         .split('<')
@@ -198,7 +200,7 @@ fn message_id_tokens(raw: &str) -> Vec<&str> {
     raw.split_whitespace()
         .filter(|word| word.contains('@'))
         .map(|word| word.trim_matches(['<', '>']))
-        .filter(|word| !word.is_empty())
+        .filter(|word| !word.is_empty() && !word.contains(['<', '>']))
         .collect()
 }
 
@@ -450,6 +452,76 @@ fn trimmed(text: String) -> Option<String> {
     }
 }
 
+/// A message: its local id, its account, where it lives on the server, its header and its flags.
+///
+/// `Debug` is derived: the header and the server reference already hide personal data.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Message {
+    id: MessageId,
+    account_id: AccountId,
+    remote: RemoteMessageRef,
+    header: MessageHeader,
+    flags: MessageFlags,
+}
+
+impl Message {
+    /// Creates a message.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The local id.
+    /// * `account_id` - The account the message belongs to.
+    /// * `remote` - Where the message lives on the server.
+    /// * `header` - The normalised header.
+    /// * `flags` - The flags and keywords set on the message.
+    #[must_use]
+    pub const fn new(
+        id: MessageId,
+        account_id: AccountId,
+        remote: RemoteMessageRef,
+        header: MessageHeader,
+        flags: MessageFlags,
+    ) -> Self {
+        Self {
+            id,
+            account_id,
+            remote,
+            header,
+            flags,
+        }
+    }
+
+    /// Returns the local id.
+    #[must_use]
+    pub const fn id(&self) -> MessageId {
+        self.id
+    }
+
+    /// Returns the account the message belongs to.
+    #[must_use]
+    pub const fn account_id(&self) -> AccountId {
+        self.account_id
+    }
+
+    /// Returns where the message lives on the server.
+    #[must_use]
+    pub const fn remote(&self) -> RemoteMessageRef {
+        self.remote
+    }
+
+    /// Returns the header.
+    #[must_use]
+    pub const fn header(&self) -> &MessageHeader {
+        &self.header
+    }
+
+    /// Returns the flags and keywords.
+    #[must_use]
+    pub const fn flags(&self) -> &MessageFlags {
+        &self.flags
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -535,6 +607,7 @@ mod tests {
             ("abc@example.com", Some("abc@example.com")),
             ("<>", None),
             ("Your message of Monday", None),
+            ("a>b@example.com", None),
         ];
 
         for (raw, expected) in cases {
@@ -647,5 +720,27 @@ mod tests {
             Some(9),
             "uidvalidity round trip"
         );
+    }
+
+    #[test]
+    fn message_exposes_its_parts() {
+        let id = MessageId::generate();
+        let account_id = AccountId::generate();
+        let remote = RemoteMessageRef::Imap {
+            mailbox: MailboxId::generate(),
+            uid_validity: UidValidity::new(1).unwrap(),
+            uid: ImapUid::new(5).unwrap(),
+        };
+        let header = MessageHeader::from_fields(fields());
+        let mut flags = MessageFlags::default();
+        flags.insert(crate::Flag::Seen);
+
+        let message = Message::new(id, account_id, remote, header.clone(), flags.clone());
+
+        assert_eq!(message.id(), id, "id");
+        assert_eq!(message.account_id(), account_id, "account");
+        assert_eq!(message.remote(), remote, "remote");
+        assert_eq!(message.header(), &header, "header");
+        assert_eq!(message.flags(), &flags, "flags");
     }
 }
